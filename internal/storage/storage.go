@@ -47,12 +47,12 @@ func (ms *MemStorage) addCounterValue(name string, value string) error {
 	oldValue, ok := ms.metrics[name]
 
 	//Добавление метрики
-	if ok {
+	if ok { //Если запись уже имеется
 		ms.metrics[name] = metric{
 			metricType: COUNTER,
 			value:      oldValue.value.(int64) + ivalue,
 		}
-	} else {
+	} else { //Если записи ещё нет
 		ms.metrics[name] = metric{
 			metricType: COUNTER,
 			value:      ivalue,
