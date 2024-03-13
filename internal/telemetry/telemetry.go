@@ -14,8 +14,8 @@ import (
 type ValueKind string
 
 const (
-	KindGauge   ValueKind = "float64"
-	KindCounter ValueKind = "int64"
+	KindGauge   ValueKind = "gauge"
+	KindCounter ValueKind = "counter"
 )
 
 type MetricStorage interface {
@@ -31,15 +31,16 @@ type MetricsCollector struct {
 	metricsList  []Metric
 	pollInterval int
 	storage      MetricStorage
-	randSource   rand.Source
+	rnd          rand.Rand
 }
 
 func NewMetricCollector(storage MetricStorage, pollInterval int, metricsList []Metric) MetricsCollector {
+	randSource := rand.NewSource(time.Now().UnixNano())
 	return MetricsCollector{
 		metricsList:  metricsList,
 		pollInterval: pollInterval,
 		storage:      storage,
-		randSource:   rand.NewSource(time.Now().UnixNano()),
+		rnd:          *rand.New(randSource),
 	}
 }
 
@@ -63,14 +64,25 @@ func (mc *MetricsCollector) CollectMetrics() {
 	for _, metric := range mc.metricsList {
 		if metric.Name == "PollCount" {
 			// Add pollCount metric to storage
-			mc.storage.AddMetricValue(metric.Name, string(metric.Kind), strconv.Itoa(1))
+			err := mc.storage.AddMetricValue(string(metric.Kind), metric.Name, strconv.Itoa(1))
+			if err != nil {
+				log.Fatalf("Error %s while adding metric %s", err, metric.Name)
+			}
 		} else if metric.Name == "RandomValue" {
-			//TODO: RandomValue logic
+			//Add random metric to storage
+			randomValue := mc.rnd.Float64()
+			err := mc.storage.AddMetricValue(string(metric.Kind), metric.Name, strconv.FormatFloat(randomValue, 'f', -1, 64))
+			if err != nil {
+				log.Fatalf("Error %s while adding metric %s", err, metric.Name)
+			}
 		} else {
 			//try to get field with name metric.Name from memStats
 			field := reflect.ValueOf(memStats).FieldByName(metric.Name)
 			if field.IsValid() {
-				mc.storage.AddMetricValue(string(metric.Kind), metric.Name, fmt.Sprintf("%v", field.Interface()))
+				err := mc.storage.AddMetricValue(string(metric.Kind), metric.Name, fmt.Sprintf("%v", field.Interface()))
+				if err != nil {
+					log.Fatalf("Error %s while adding metric %s", err, metric.Name)
+				}
 			} else {
 				log.Printf("Skip collection of metric \"%s\" because there is no metric with that name.", metric.Name)
 			}

@@ -76,5 +76,4 @@ func (s *Sender) sendMetric(name string, kind string, value string) {
 	if resp.StatusCode != 200 {
 		log.Fatalf("the server returned an error code \"%s\" when trying to send a metric {name: %s, kind %s, value %s}", resp.Status, name, kind, value)
 	}
-
 }

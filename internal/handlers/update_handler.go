@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strings"
 )
@@ -36,6 +37,7 @@ func (h UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	//Change later
 	//Try to add metric to the storage
+	log.Printf("New income metric \"%s\" with value %s", urlParts[3], urlParts[4])
 	if err := h.storage.AddMetricValue(urlParts[2], urlParts[3], urlParts[4]); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

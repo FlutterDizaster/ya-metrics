@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
@@ -14,5 +15,6 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/update/", updateHandler)
 
+	log.Println("Listening")
 	http.ListenAndServe(":8080", mux)
 }
