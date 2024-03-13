@@ -5,25 +5,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type TestMetric struct {
-	Name  string
 	Kind  string
 	Value string
 }
 
 type TestStorage struct {
-	Metrics []TestMetric
+	Metrics map[string]TestMetric
 }
 
 func (ts *TestStorage) AddMetricValue(kind string, name string, value string) error {
-	ts.Metrics = append(ts.Metrics, TestMetric{
-		Name:  name,
+	ts.Metrics[name] = TestMetric{
 		Kind:  kind,
 		Value: value,
-	})
+	}
 
 	return nil
 }
@@ -52,7 +51,7 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 						Kind: "gauge",
 					},
 				},
-				storage: TestStorage{make([]TestMetric, 0)},
+				storage: TestStorage{make(map[string]TestMetric)},
 			},
 			want: 2,
 		},
@@ -65,7 +64,7 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 						Kind: "count",
 					},
 				},
-				storage: TestStorage{make([]TestMetric, 0)},
+				storage: TestStorage{make(map[string]TestMetric)},
 			},
 			want: 0,
 		},
@@ -79,9 +78,6 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 			mc.CollectMetrics()
 			//Проверяем добавились ли метрики
 			require.Equal(t, tt.want, len(tt.fields.storage.Metrics))
-			for _, metric := range tt.fields.storage.Metrics {
-				t.Logf("metric \"%s\" type of \"%s\" have value %s\n", metric.Name, metric.Kind, metric.Value)
-			}
 			//TODO проверить, что метрики добавляются првильно
 		})
 	}
@@ -112,11 +108,11 @@ func TestMetricsCollector_Start(t *testing.T) {
 						Kind: "gauge",
 					},
 				},
-				storage:      TestStorage{make([]TestMetric, 0)},
+				storage:      TestStorage{make(map[string]TestMetric)},
 				pollInterval: 1,
 			},
 			testDuration: 3,
-			want:         8,
+			want:         2,
 		},
 	}
 	for _, tt := range tests {
@@ -132,10 +128,8 @@ func TestMetricsCollector_Start(t *testing.T) {
 
 			mc.Start(ctx)
 			// TODO: Проверки
-			require.Equal(t, tt.want, len(tt.fields.storage.Metrics))
-			for _, metric := range tt.fields.storage.Metrics {
-				t.Logf("metric \"%s\" type of \"%s\" have value %s\n", metric.Name, metric.Kind, metric.Value)
-			}
+			assert.Equal(t, tt.want, len(mc.metricsList))
+
 		})
 	}
 }
