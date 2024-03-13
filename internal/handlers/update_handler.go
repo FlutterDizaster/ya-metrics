@@ -5,15 +5,15 @@ import (
 	"strings"
 )
 
-type MetricsStorage interface {
-	AddMetricValue(mtype string, name string, value string) error
+type MetricStorage interface {
+	AddMetricValue(kind string, name string, value string) error
 }
 
 type UpdateHandler struct {
-	storage MetricsStorage
+	storage MetricStorage
 }
 
-func NewUpdateHandler(storage MetricsStorage) UpdateHandler {
+func NewUpdateHandler(storage MetricStorage) UpdateHandler {
 	return UpdateHandler{
 		storage: storage,
 	}

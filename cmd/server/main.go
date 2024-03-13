@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	storage := storage.NewMemStorage()
+	storage := storage.NewMetricStorage()
 	updateHandler := handlers.NewUpdateHandler(&storage)
 
 	mux := http.NewServeMux()
