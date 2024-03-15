@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -58,19 +59,22 @@ func TestUpdateHandler_ServeHTTP(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+
 			storage := TestStorage{}
 
-			req := httptest.NewRequest(test.method, test.request, http.NoBody)
-
-			w := httptest.NewRecorder()
 			handler := NewUpdateHandler(&storage)
+			srv := httptest.NewServer(handler)
 
-			handler.ServeHTTP(w, req)
+			req := resty.New().R()
+			req.Method = test.method
+			req.URL = srv.URL + test.request
 
-			res := w.Result()
-			defer res.Body.Close()
+			resp, err := req.Send()
 
-			assert.Equal(t, test.want.code, res.StatusCode)
+			assert.NoError(t, err, "error making http request")
+			assert.Equal(t, test.want.code, resp.StatusCode())
+
+			srv.Close()
 		})
 	}
 }
