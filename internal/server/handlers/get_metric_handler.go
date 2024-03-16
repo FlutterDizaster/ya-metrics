@@ -1,6 +1,10 @@
 package handlers
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
 
 type GetMetricHandler struct {
 	storage GetMetricStorage
@@ -13,5 +17,14 @@ func NewGetMetricHandler(storage GetMetricStorage) GetMetricHandler {
 }
 
 func (h GetMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+	name := chi.URLParam(r, "name")
 
+	value, err := h.storage.GetMetricValue(kind, name)
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+	}
+
+	w.Write([]byte(value))
 }
