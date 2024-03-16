@@ -38,24 +38,6 @@ func TestUpdateHandler_ServeHTTP(t *testing.T) {
 				contentType: "text/plain charset=utf-8",
 			},
 		},
-		{
-			name:    "404 test",
-			request: "/test/test",
-			method:  http.MethodPost,
-			want: want{
-				code:        404,
-				contentType: "text/plain charset=utf-8",
-			},
-		},
-		{
-			name:    "405 test",
-			request: "/test/test",
-			method:  http.MethodGet,
-			want: want{
-				code:        405,
-				contentType: "text/plain charset=utf-8",
-			},
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

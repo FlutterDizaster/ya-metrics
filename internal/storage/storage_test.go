@@ -363,7 +363,7 @@ func TestMetricStorage_GetAll(t *testing.T) {
 				metrics: tt.values,
 				mtx:     sync.Mutex{},
 			}
-			got := ms.GetAll()
+			got := ms.GetAllMetrics()
 			fmt.Println(got)
 			require.ElementsMatchf(t, tt.want, got, "MetricStorage.GetAll() = %v, want %v", got, tt.want)
 		})

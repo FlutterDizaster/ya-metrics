@@ -28,7 +28,7 @@ func NewMetricStorage() MetricStorage {
 	}
 }
 
-func (ms *MetricStorage) GetAll() []struct {
+func (ms *MetricStorage) GetAllMetrics() []struct {
 	Name  string
 	Kind  string
 	Value string
@@ -127,4 +127,9 @@ func (ms *MetricStorage) addGaugeValue(name string, value string) error {
 		value: fvalue,
 	}
 	return nil
+}
+
+func (ms *MetricStorage) GetMetricValue(kind string, name string) (string, error) {
+	// TODO: Implement
+	return "", nil
 }

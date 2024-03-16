@@ -9,7 +9,7 @@ import (
 )
 
 type MetricStorage interface {
-	GetAll() []struct {
+	GetAllMetrics() []struct {
 		Name  string
 		Kind  string
 		Value string
@@ -49,7 +49,7 @@ func (s *Sender) Start(ctx context.Context) {
 }
 
 func (s *Sender) sendAll() {
-	metrics := s.storage.GetAll()
+	metrics := s.storage.GetAllMetrics()
 	for _, metric := range metrics {
 		go s.sendMetric(metric.Name, metric.Kind, metric.Value)
 	}
