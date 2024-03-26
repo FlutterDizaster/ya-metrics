@@ -48,7 +48,7 @@ func (h GetAllHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	metrics := h.storage.GetAllMetrics()
 
-	err = tmpl.ExecuteTemplate(w, "metrics", metrics) // TODO: Add data
+	err = tmpl.ExecuteTemplate(w, "metrics", metrics)
 
 	if err != nil {
 		http.Error(w, "Error whlie executing temaplate", 500)
