@@ -56,6 +56,9 @@ func TestUpdateHandler_ServeHTTP(t *testing.T) {
 			assert.NoError(t, err, "error making http request")
 			assert.Equal(t, test.want.code, resp.StatusCode())
 
+			//Test is useless
+			//TODO: Edit
+
 			srv.Close()
 		})
 	}

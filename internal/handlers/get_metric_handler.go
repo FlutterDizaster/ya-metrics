@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +20,8 @@ func NewGetMetricHandler(storage GetMetricStorage) GetMetricHandler {
 func (h GetMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 	name := chi.URLParam(r, "name")
+
+	fmt.Printf("Name: %s, kind: %s", name, kind)
 
 	value, err := h.storage.GetMetricValue(kind, name)
 

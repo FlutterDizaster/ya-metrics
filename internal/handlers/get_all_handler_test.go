@@ -105,7 +105,8 @@ func TestGetAllHandler_ServeHTTP(t *testing.T) {
 			testBoyd = strings.ReplaceAll(testBoyd, "\t", "")
 
 			assert.Equal(t, testBoyd, body)
-			// TODO: add tests logic here
+
+			srv.Close()
 		})
 	}
 }
