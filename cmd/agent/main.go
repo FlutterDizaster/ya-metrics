@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/memstorage"
 	"github.com/FlutterDizaster/ya-metrics/internal/sender"
-	"github.com/FlutterDizaster/ya-metrics/internal/storage"
 	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
 )
 
@@ -44,7 +44,7 @@ func main() {
 		{Name: "RandomValue", Kind: telemetry.KindGauge},
 	}
 
-	storage := storage.NewMetricStorage()
+	storage := memstorage.NewMetricStorage()
 
 	collector := telemetry.NewMetricCollector(&storage, pollInterval, metricsList)
 

@@ -19,7 +19,7 @@ type testGetAllStorage struct {
 	}
 }
 
-func (s *testGetAllStorage) GetAllMetrics() []struct {
+func (s *testGetAllStorage) ReadAllMetrics() []struct {
 	Name  string
 	Kind  string
 	Value string

@@ -4,11 +4,11 @@ import (
 	"net/http"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
-	"github.com/FlutterDizaster/ya-metrics/internal/storage"
+	"github.com/FlutterDizaster/ya-metrics/internal/memstorage"
 )
 
 func main() {
-	storage := storage.NewMetricStorage()
+	storage := memstorage.NewMetricStorage()
 
 	updateHandler := handlers.NewUpdateHandler(&storage)
 	getMetricHandler := handlers.NewGetMetricHandler(&storage)

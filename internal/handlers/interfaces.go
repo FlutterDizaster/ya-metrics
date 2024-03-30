@@ -9,7 +9,7 @@ type GetMetricStorage interface {
 }
 
 type GetAllMetricsStorage interface {
-	GetAllMetrics() []struct {
+	ReadAllMetrics() []struct {
 		Name  string
 		Kind  string
 		Value string

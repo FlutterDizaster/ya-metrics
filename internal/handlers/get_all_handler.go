@@ -46,7 +46,7 @@ func (h GetAllHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics := h.storage.GetAllMetrics()
+	metrics := h.storage.ReadAllMetrics()
 
 	err = tmpl.ExecuteTemplate(w, "metrics", metrics)
 
