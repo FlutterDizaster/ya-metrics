@@ -10,6 +10,7 @@ import (
 
 func main() {
 	endpoint := flag.String("a", "localhost:8080", "Server endpoint addres. Default localhost:8080")
+	flag.Parse()
 
 	storage := memstorage.NewMetricStorage()
 
