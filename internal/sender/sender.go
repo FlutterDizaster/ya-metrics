@@ -18,16 +18,14 @@ type MetricStorage interface {
 
 type Sender struct {
 	serverAddr     string
-	serverPort     string
 	reportInterval int
 	storage        MetricStorage
 	client         http.Client
 }
 
-func NewSender(port string, addr string, reportInterval int, storage MetricStorage) Sender {
+func NewSender(addr string, reportInterval int, storage MetricStorage) Sender {
 	return Sender{
 		serverAddr:     addr,
-		serverPort:     port,
 		reportInterval: reportInterval,
 		storage:        storage,
 		client:         http.Client{},
@@ -57,7 +55,7 @@ func (s *Sender) sendAll() {
 
 func (s *Sender) sendMetric(name string, kind string, value string) {
 	//creating url
-	url := fmt.Sprintf("http://%s:%s/update/%s/%s/%s", s.serverAddr, s.serverPort, kind, name, value)
+	url := fmt.Sprintf("http://%s/update/%s/%s/%s", s.serverAddr, kind, name, value)
 
 	//creating request
 	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)

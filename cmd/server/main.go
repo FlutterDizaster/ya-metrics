@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"net/http"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
@@ -8,6 +9,8 @@ import (
 )
 
 func main() {
+	endpoint := flag.String("a", "localhost:8080", "Server endpoint addres. Default localhost:8080")
+
 	storage := memstorage.NewMetricStorage()
 
 	updateHandler := handlers.NewUpdateHandler(&storage)
@@ -20,5 +23,5 @@ func main() {
 		GetMetricHandler: getMetricHandler,
 	}
 
-	http.ListenAndServe(":8080", handlers.NewRouter(rs))
+	http.ListenAndServe(*endpoint, handlers.NewRouter(rs))
 }

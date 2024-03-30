@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/memstorage"
 	"github.com/FlutterDizaster/ya-metrics/internal/sender"
@@ -9,8 +10,10 @@ import (
 )
 
 func main() {
-	pollInterval := 2
-	reportInterval := 10
+	endpoint := flag.String("a", "localhost:8080", "HTTP-server addres. Default \"localhost:8080\"")
+	reportInterval := flag.Int("r", 10, "Report interval in seconds. Default 10 sec")
+	pollInterval := flag.Int("p", 2, "Metrics poll interval. Default 2 sec")
+	flag.Parse()
 
 	metricsList := []telemetry.Metric{
 		{Name: "Alloc", Kind: telemetry.KindGauge},
@@ -46,9 +49,9 @@ func main() {
 
 	storage := memstorage.NewMetricStorage()
 
-	collector := telemetry.NewMetricCollector(&storage, pollInterval, metricsList)
+	collector := telemetry.NewMetricCollector(&storage, *pollInterval, metricsList)
 
-	sender := sender.NewSender("8080", "localhost", reportInterval, &storage)
+	sender := sender.NewSender(*endpoint, *reportInterval, &storage)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
