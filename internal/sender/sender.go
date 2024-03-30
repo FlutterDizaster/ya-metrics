@@ -14,6 +14,7 @@ type MetricStorage interface {
 		Kind  string
 		Value string
 	}
+	Clear()
 }
 
 type Sender struct {
@@ -50,6 +51,7 @@ func (s *Sender) Start(ctx context.Context) {
 
 func (s *Sender) sendAll() {
 	metrics := s.storage.GetAllMetrics()
+	s.storage.Clear()
 	for _, metric := range metrics {
 		go s.sendMetric(metric.Name, metric.Kind, metric.Value)
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
@@ -21,6 +20,5 @@ func main() {
 		GetMetricHandler: getMetricHandler,
 	}
 
-	log.Println("Listening")
 	http.ListenAndServe(":8080", handlers.NewRouter(rs))
 }
