@@ -4,8 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/server/handlers"
-	"github.com/FlutterDizaster/ya-metrics/internal/server/router"
+	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
 	"github.com/FlutterDizaster/ya-metrics/internal/storage"
 )
 
@@ -16,12 +15,12 @@ func main() {
 	getMetricHandler := handlers.NewGetMetricHandler(&storage)
 	getAllHandler := handlers.NewGetAllHandler(&storage)
 
-	rs := router.RouterSettings{
+	rs := handlers.RouterSettings{
 		UpdateHandler:    updateHandler,
 		GetAllHandler:    getAllHandler,
 		GetMetricHandler: getMetricHandler,
 	}
 
 	log.Println("Listening")
-	http.ListenAndServe(":8080", router.NewRouter(rs))
+	http.ListenAndServe(":8080", handlers.NewRouter(rs))
 }

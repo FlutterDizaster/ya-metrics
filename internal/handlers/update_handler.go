@@ -17,12 +17,6 @@ func NewUpdateHandler(storage AddMetricStorage) UpdateHandler {
 }
 
 func (h UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// //Check method type
-	// if r.Method != http.MethodPost {
-	// 	w.WriteHeader(http.StatusMethodNotAllowed)
-	// 	return
-	// }
-
 	//Try to add metric to the storage
 	kind := chi.URLParam(r, "kind")
 	name := chi.URLParam(r, "name")
