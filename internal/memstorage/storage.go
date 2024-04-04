@@ -3,6 +3,8 @@ package memstorage
 import (
 	"errors"
 	"sync"
+
+	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
 
 type Metric interface {
@@ -51,22 +53,14 @@ func (ms *MetricStorage) AddMetricValue(kind string, name string, value string) 
 	return nil
 }
 
-func (ms *MetricStorage) ReadAllMetrics() []struct {
-	Name  string
-	Kind  string
-	Value string
-} {
+func (ms *MetricStorage) ReadAllMetrics() []view.Metric {
 	ms.mtx.Lock()
 	defer ms.mtx.Unlock()
 
 	return ms.getAllMetrics()
 }
 
-func (ms *MetricStorage) PullAllMetrics() []struct {
-	Name  string
-	Kind  string
-	Value string
-} {
+func (ms *MetricStorage) PullAllMetrics() []view.Metric {
 	ms.mtx.Lock()
 	defer ms.mtx.Unlock()
 
@@ -75,23 +69,14 @@ func (ms *MetricStorage) PullAllMetrics() []struct {
 	return metrics
 }
 
-func (ms *MetricStorage) getAllMetrics() []struct {
-	Name  string
-	Kind  string
-	Value string
-} {
-	metrics := make([]struct {
-		Name  string
-		Kind  string
-		Value string
-	}, 0)
+func (ms *MetricStorage) getAllMetrics() []view.Metric {
+	metrics := make([]view.Metric, 0)
 
 	for name, metric := range ms.metrics {
-		metrics = append(metrics, struct {
-			Name  string
-			Kind  string
-			Value string
-		}{Name: name, Kind: metric.Kind(), Value: metric.GetValue()})
+		metrics = append(
+			metrics,
+			view.Metric{Name: name, Kind: metric.Kind(), Value: metric.GetValue()},
+		)
 	}
 
 	return metrics

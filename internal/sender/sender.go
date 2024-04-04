@@ -6,14 +6,12 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
 
 type MetricStorage interface {
-	PullAllMetrics() []struct {
-		Name  string
-		Kind  string
-		Value string
-	}
+	PullAllMetrics() []view.Metric
 }
 
 type Sender struct {
@@ -74,6 +72,10 @@ func (s *Sender) sendMetric(name string, kind string, value string) {
 
 	if resp.StatusCode != http.StatusOK {
 		//TODO: add error processing
-		log.Printf("unexpected status code \"%s\" when trying to send a metric name: %s", resp.Status, name)
+		log.Printf(
+			"unexpected status code \"%s\" when trying to send a metric name: %s",
+			resp.Status,
+			name,
+		)
 	}
 }

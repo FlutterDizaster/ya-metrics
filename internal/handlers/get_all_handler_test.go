@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
+	"github.com/FlutterDizaster/ya-metrics/internal/view"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
@@ -14,18 +15,10 @@ import (
 )
 
 type testGetAllStorage struct {
-	content []struct {
-		Name  string
-		Kind  string
-		Value string
-	}
+	content []view.Metric
 }
 
-func (s *testGetAllStorage) ReadAllMetrics() []struct {
-	Name  string
-	Kind  string
-	Value string
-} {
+func (s *testGetAllStorage) ReadAllMetrics() []view.Metric {
 	return s.content
 }
 
@@ -36,21 +29,13 @@ func TestGetAllHandler_ServeHTTP(t *testing.T) {
 	}
 	type test struct {
 		name   string
-		values []struct {
-			Name  string
-			Kind  string
-			Value string
-		}
-		want want
+		values []view.Metric
+		want   want
 	}
 	tests := []test{
 		{
 			name: "simple test",
-			values: []struct {
-				Name  string
-				Kind  string
-				Value string
-			}{
+			values: []view.Metric{
 				{
 					Name:  "test",
 					Kind:  "gauge",

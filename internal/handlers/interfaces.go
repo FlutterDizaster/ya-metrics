@@ -1,5 +1,7 @@
 package handlers
 
+import "github.com/FlutterDizaster/ya-metrics/internal/view"
+
 type AddMetricStorage interface {
 	AddMetricValue(kind string, name string, value string) error
 }
@@ -9,9 +11,5 @@ type GetMetricStorage interface {
 }
 
 type GetAllMetricsStorage interface {
-	ReadAllMetrics() []struct {
-		Name  string
-		Kind  string
-		Value string
-	}
+	ReadAllMetrics() []view.Metric
 }
