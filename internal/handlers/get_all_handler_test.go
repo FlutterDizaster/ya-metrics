@@ -1,10 +1,12 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
@@ -85,7 +87,7 @@ func TestGetAllHandler_ServeHTTP(t *testing.T) {
 				content: tt.values,
 			}
 
-			handler := NewGetAllHandler(&storage)
+			handler := handlers.NewGetAllHandler(&storage)
 			srv := httptest.NewServer(handler)
 
 			req := resty.New().R()

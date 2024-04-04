@@ -5,20 +5,20 @@ import (
 	"sync"
 )
 
-type metric interface {
+type Metric interface {
 	UpdateValue(newValue string) error
 	GetValue() string
 	Kind() string
 }
 
 type MetricStorage struct {
-	metrics map[string]metric
+	metrics map[string]Metric
 	mtx     sync.Mutex
 }
 
 func NewMetricStorage() MetricStorage {
 	return MetricStorage{
-		metrics: make(map[string]metric),
+		metrics: make(map[string]Metric),
 	}
 }
 
@@ -71,7 +71,7 @@ func (ms *MetricStorage) PullAllMetrics() []struct {
 	defer ms.mtx.Unlock()
 
 	metrics := ms.getAllMetrics()
-	ms.metrics = make(map[string]metric)
+	ms.metrics = make(map[string]Metric)
 	return metrics
 }
 

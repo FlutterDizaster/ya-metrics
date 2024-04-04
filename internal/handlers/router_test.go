@@ -1,10 +1,11 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,18 +13,18 @@ import (
 type testHandler struct {
 }
 
-func (th testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (th testHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
 func TestNewRouter(t *testing.T) {
-	rs := RouterSettings{
+	rs := handlers.RouterSettings{
 		UpdateHandler:    testHandler{},
 		GetAllHandler:    testHandler{},
 		GetMetricHandler: testHandler{},
 	}
 
-	ts := httptest.NewServer(NewRouter(rs))
+	ts := httptest.NewServer(handlers.NewRouter(rs))
 	defer ts.Close()
 
 	tests := []struct {

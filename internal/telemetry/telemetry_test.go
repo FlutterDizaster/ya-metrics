@@ -1,12 +1,12 @@
-package telemetry
+package telemetry_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type TestMetric struct {
@@ -29,7 +29,7 @@ func (ts *TestStorage) AddMetricValue(kind string, name string, value string) er
 
 func TestMetricsCollector_CollectMetrics(t *testing.T) {
 	type fields struct {
-		metricsList []Metric
+		metricsList []telemetry.Metric
 		storage     TestStorage
 	}
 
@@ -41,7 +41,7 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 		{
 			name: "simple test",
 			fields: fields{
-				metricsList: []Metric{
+				metricsList: []telemetry.Metric{
 					{
 						Name: "Alloc",
 						Kind: "gauge",
@@ -58,7 +58,7 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 		{
 			name: "wrong name test",
 			fields: fields{
-				metricsList: []Metric{
+				metricsList: []telemetry.Metric{
 					{
 						Name: "wrong name",
 						Kind: "count",
@@ -71,21 +71,20 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mc := &MetricsCollector{
-				metricsList: tt.fields.metricsList,
-				storage:     &tt.fields.storage,
+			mc := &telemetry.MetricsCollector{
+				MetricsList: tt.fields.metricsList,
+				Storage:     &tt.fields.storage,
 			}
 			mc.CollectMetrics()
-			//Проверяем добавились ли метрики
-			require.Equal(t, tt.want, len(tt.fields.storage.Metrics))
-			//TODO проверить, что метрики добавляются првильно
+			assert.Len(t, tt.fields.storage.Metrics, tt.want)
+			//TODO: проверить, что метрики добавляются првильно
 		})
 	}
 }
 
 func TestMetricsCollector_Start(t *testing.T) {
 	type fields struct {
-		metricsList  []Metric
+		metricsList  []telemetry.Metric
 		storage      TestStorage
 		pollInterval int
 	}
@@ -98,7 +97,7 @@ func TestMetricsCollector_Start(t *testing.T) {
 		{
 			name: "simple test",
 			fields: fields{
-				metricsList: []Metric{
+				metricsList: []telemetry.Metric{
 					{
 						Name: "Alloc",
 						Kind: "gauge",
@@ -117,7 +116,7 @@ func TestMetricsCollector_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mc := NewMetricCollector(&tt.fields.storage, tt.fields.pollInterval, tt.fields.metricsList)
+			mc := telemetry.NewMetricCollector(&tt.fields.storage, tt.fields.pollInterval, tt.fields.metricsList)
 
 			ctx, cancle := context.WithCancel(context.Background())
 
@@ -127,9 +126,8 @@ func TestMetricsCollector_Start(t *testing.T) {
 			}()
 
 			mc.Start(ctx)
-			// TODO: Проверки
-			assert.Equal(t, tt.want, len(mc.metricsList))
-
+			//TODO: Проверки
+			assert.Len(t, mc.MetricsList, tt.want)
 		})
 	}
 }

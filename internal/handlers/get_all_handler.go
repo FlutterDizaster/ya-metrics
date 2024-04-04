@@ -15,7 +15,7 @@ func NewGetAllHandler(storage GetAllMetricsStorage) GetAllHandler {
 	}
 }
 
-func (h GetAllHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h GetAllHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	content := `{{define "metrics"}}
 	<!doctype html>
 	<html lang="en">
@@ -42,7 +42,7 @@ func (h GetAllHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := template.New("metrics").Parse(content)
 
 	if err != nil {
-		http.Error(w, "Error whlie creating temaplate", 500)
+		http.Error(w, "Error whlie creating temaplate", http.StatusInternalServerError)
 		return
 	}
 
@@ -51,7 +51,7 @@ func (h GetAllHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err = tmpl.ExecuteTemplate(w, "metrics", metrics)
 
 	if err != nil {
-		http.Error(w, "Error whlie executing temaplate", 500)
+		http.Error(w, "Error whlie executing temaplate", http.StatusInternalServerError)
 		return
 	}
 }

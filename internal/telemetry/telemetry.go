@@ -28,18 +28,18 @@ type Metric struct {
 }
 
 type MetricsCollector struct {
-	metricsList  []Metric
+	MetricsList  []Metric
 	pollInterval int
-	storage      MetricStorage
+	Storage      MetricStorage
 	rnd          rand.Rand
 }
 
 func NewMetricCollector(storage MetricStorage, pollInterval int, metricsList []Metric) MetricsCollector {
 	randSource := rand.NewSource(time.Now().UnixNano())
 	return MetricsCollector{
-		metricsList:  metricsList,
+		MetricsList:  metricsList,
 		pollInterval: pollInterval,
-		storage:      storage,
+		Storage:      storage,
 		rnd:          *rand.New(randSource),
 	}
 }
@@ -61,25 +61,30 @@ func (mc *MetricsCollector) CollectMetrics() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
-	for _, metric := range mc.metricsList {
-		if metric.Name == "PollCount" {
+	for _, metric := range mc.MetricsList {
+		switch metric.Name {
+		case "PollCount":
 			// Add pollCount metric to storage
-			err := mc.storage.AddMetricValue(string(metric.Kind), metric.Name, strconv.Itoa(1))
+			err := mc.Storage.AddMetricValue(string(metric.Kind), metric.Name, strconv.Itoa(1))
 			if err != nil {
 				log.Fatalf("Error %s while adding metric %s", err, metric.Name)
 			}
-		} else if metric.Name == "RandomValue" {
-			//Add random metric to storage
+		case "RandomValue":
+			// Add random metric to storage
 			randomValue := mc.rnd.Float64()
-			err := mc.storage.AddMetricValue(string(metric.Kind), metric.Name, strconv.FormatFloat(randomValue, 'f', -1, 64))
+			err := mc.Storage.AddMetricValue(
+				string(metric.Kind),
+				metric.Name,
+				strconv.FormatFloat(randomValue, 'f', -1, 64),
+			)
 			if err != nil {
 				log.Fatalf("Error %s while adding metric %s", err, metric.Name)
 			}
-		} else {
-			//try to get field with name metric.Name from memStats
+		default:
+			// try to get field with name metric.Name from memStats
 			field := reflect.ValueOf(memStats).FieldByName(metric.Name)
 			if field.IsValid() {
-				err := mc.storage.AddMetricValue(string(metric.Kind), metric.Name, fmt.Sprintf("%v", field.Interface()))
+				err := mc.Storage.AddMetricValue(string(metric.Kind), metric.Name, fmt.Sprintf("%v", field.Interface()))
 				if err != nil {
 					log.Fatalf("Error %s while adding metric %s", err, metric.Name)
 				}

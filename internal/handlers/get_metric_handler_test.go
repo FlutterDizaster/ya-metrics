@@ -1,10 +1,12 @@
-package handlers
+package handlers_test
 
 import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
@@ -20,7 +22,10 @@ type testGetValueStorage struct {
 	}
 }
 
-func (s *testGetValueStorage) GetMetricValue(kind string, name string) (value string, err error) {
+func (s *testGetValueStorage) GetMetricValue(_ string, name string) (string, error) {
+	var value string
+	var err error
+
 	for _, v := range s.content {
 		if v.Name == name {
 			value = v.Value
@@ -30,7 +35,7 @@ func (s *testGetValueStorage) GetMetricValue(kind string, name string) (value st
 		err = errors.New("Not found")
 	}
 
-	return
+	return value, err
 }
 
 func TestGetMetricHandler_ServeHTTP(t *testing.T) {
@@ -75,7 +80,7 @@ func TestGetMetricHandler_ServeHTTP(t *testing.T) {
 				content: tt.values,
 			}
 
-			handler := NewGetMetricHandler(&storage)
+			handler := handlers.NewGetMetricHandler(&storage)
 
 			router := chi.NewRouter()
 			router.Get("/value/{kind}/{name}", handler.ServeHTTP)

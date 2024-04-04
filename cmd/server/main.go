@@ -2,11 +2,9 @@ package main
 
 import (
 	"flag"
-	"net/http"
 	"os"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
-	"github.com/FlutterDizaster/ya-metrics/internal/memstorage"
+	"github.com/FlutterDizaster/ya-metrics/internal/server"
 )
 
 func main() {
@@ -18,17 +16,5 @@ func main() {
 		endpoint = &envEndpoint
 	}
 
-	storage := memstorage.NewMetricStorage()
-
-	updateHandler := handlers.NewUpdateHandler(&storage)
-	getMetricHandler := handlers.NewGetMetricHandler(&storage)
-	getAllHandler := handlers.NewGetAllHandler(&storage)
-
-	rs := handlers.RouterSettings{
-		UpdateHandler:    updateHandler,
-		GetAllHandler:    getAllHandler,
-		GetMetricHandler: getMetricHandler,
-	}
-
-	http.ListenAndServe(*endpoint, handlers.NewRouter(rs))
+	server.Setup(*endpoint)
 }

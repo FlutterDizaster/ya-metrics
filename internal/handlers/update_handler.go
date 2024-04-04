@@ -17,7 +17,7 @@ func NewUpdateHandler(storage AddMetricStorage) UpdateHandler {
 }
 
 func (h UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	//Try to add metric to the storage
+	// Try to add metric to the storage
 	kind := chi.URLParam(r, "kind")
 	name := chi.URLParam(r, "name")
 	value := chi.URLParam(r, "value")
@@ -27,7 +27,7 @@ func (h UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Write response
+	// Write response
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Add("Content-Type", "charset=utf-8")
 	w.WriteHeader(http.StatusOK)

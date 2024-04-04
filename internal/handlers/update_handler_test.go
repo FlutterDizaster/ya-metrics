@@ -1,18 +1,20 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type TestStorage struct {
 }
 
-func (s *TestStorage) AddMetricValue(kind string, name string, value string) error {
+func (s *TestStorage) AddMetricValue(_ string, _ string, _ string) error {
 	return nil
 }
 
@@ -41,10 +43,9 @@ func TestUpdateHandler_ServeHTTP(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
 			storage := TestStorage{}
 
-			handler := NewUpdateHandler(&storage)
+			handler := handlers.NewUpdateHandler(&storage)
 			srv := httptest.NewServer(handler)
 
 			req := resty.New().R()
@@ -53,10 +54,10 @@ func TestUpdateHandler_ServeHTTP(t *testing.T) {
 
 			resp, err := req.Send()
 
-			assert.NoError(t, err, "error making http request")
+			require.NoError(t, err, "error making http request")
 			assert.Equal(t, test.want.code, resp.StatusCode())
 
-			//Test is useless
+			//FIXME: Test is useless
 			//TODO: Edit
 
 			srv.Close()

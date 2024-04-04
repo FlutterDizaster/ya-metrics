@@ -26,5 +26,8 @@ func (h GetMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}
 
-	w.Write([]byte(value))
+	_, err = w.Write([]byte(value))
+	if err != nil {
+		http.Error(w, "", http.StatusTeapot)
+	}
 }

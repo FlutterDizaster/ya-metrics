@@ -19,10 +19,10 @@ func NewRouter(rs RouterSettings) http.Handler {
 	r.Post("/update/{kind}/{name}/{value}", rs.UpdateHandler.ServeHTTP) // Update handle
 	r.Get("/value/{kind}/{name}", rs.GetMetricHandler.ServeHTTP)        // Get value handle
 
-	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
-	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+	r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	})
 

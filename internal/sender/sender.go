@@ -54,24 +54,26 @@ func (s *Sender) sendAll() {
 }
 
 func (s *Sender) sendMetric(name string, kind string, value string) {
-	//creating url
+	// creating url
 	url := fmt.Sprintf("http://%s/update/%s/%s/%s", s.serverAddr, kind, name, value)
 
-	//creating request
-	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
+	// creating request
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodPost, url, http.NoBody)
 	if err != nil {
-		panic(err)
+		log.Printf("unexpected error in sendMetric function\n%s", err)
 	}
 
 	req.Header.Set("Content-Type", "text/plain")
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Printf("connection error \"%s\" when trying to send a metric %s", err, name)
+		return
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		log.Fatalf("the server returned an error code \"%s\" when trying to send a metric {name: %s, kind %s, value %s}", resp.Status, name, kind, value)
+	if resp.StatusCode != http.StatusOK {
+		//TODO: add error processing
+		log.Printf("unexpected status code \"%s\" when trying to send a metric name: %s", resp.Status, name)
 	}
 }
