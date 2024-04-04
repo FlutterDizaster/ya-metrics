@@ -53,7 +53,7 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 				},
 				storage: TestStorage{make(map[string]TestMetric)},
 			},
-			want: 2,
+			want: 4,
 		},
 		{
 			name: "wrong name test",
@@ -66,15 +66,13 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 				},
 				storage: TestStorage{make(map[string]TestMetric)},
 			},
-			want: 0,
+			want: 2,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mc := &telemetry.MetricsCollector{
-				MetricsList: tt.fields.metricsList,
-				Storage:     &tt.fields.storage,
-			}
+			mc := telemetry.NewMetricCollector(&tt.fields.storage, 2, tt.fields.metricsList)
+
 			mc.CollectMetrics()
 			assert.Len(t, tt.fields.storage.Metrics, tt.want)
 			//TODO: проверить, что метрики добавляются првильно
@@ -116,7 +114,11 @@ func TestMetricsCollector_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mc := telemetry.NewMetricCollector(&tt.fields.storage, tt.fields.pollInterval, tt.fields.metricsList)
+			mc := telemetry.NewMetricCollector(
+				&tt.fields.storage,
+				tt.fields.pollInterval,
+				tt.fields.metricsList,
+			)
 
 			ctx, cancle := context.WithCancel(context.Background())
 
