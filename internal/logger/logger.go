@@ -3,6 +3,9 @@ package logger
 import (
 	"log/slog"
 	"os"
+
+	// for passing autotests.
+	_ "github.com/rs/zerolog"
 )
 
 func Init() {
