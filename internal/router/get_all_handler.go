@@ -1,21 +1,11 @@
-package handlers
+package router
 
 import (
+	"html/template"
 	"net/http"
-	"text/template"
 )
 
-type GetAllHandler struct {
-	storage GetAllMetricsStorage
-}
-
-func NewGetAllHandler(storage GetAllMetricsStorage) GetAllHandler {
-	return GetAllHandler{
-		storage: storage,
-	}
-}
-
-func (h GetAllHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+func (r *Router) getAllHandler(w http.ResponseWriter, _ *http.Request) {
 	content := `{{define "metrics"}}
 	<!doctype html>
 	<html lang="en">
@@ -46,7 +36,7 @@ func (h GetAllHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	metrics := h.storage.ReadAllMetrics()
+	metrics := r.storage.ReadAllMetrics()
 
 	err = tmpl.ExecuteTemplate(w, "metrics", metrics)
 

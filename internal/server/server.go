@@ -3,34 +3,37 @@ package server
 import (
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
+	"github.com/FlutterDizaster/ya-metrics/internal/logger"
 	"github.com/FlutterDizaster/ya-metrics/internal/memstorage"
+	"github.com/FlutterDizaster/ya-metrics/internal/router"
+	"github.com/FlutterDizaster/ya-metrics/internal/router/middleware"
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 )
 
 func Setup(url string) {
-	// url validation
-	err := utils.ValidateURL(url)
-	if err != nil {
+	// initialize logger
+	logger.Init()
+
+	// validate url
+	if err := utils.ValidateURL(url); err != nil {
 		log.Fatalf("url error: %s", err)
 	}
 
+	// create new metric storage
 	storage := memstorage.NewMetricStorage()
 
-	updateHandler := handlers.NewUpdateHandler(&storage)
-	getMetricHandler := handlers.NewGetMetricHandler(&storage)
-	getAllHandler := handlers.NewGetAllHandler(&storage)
-
-	rs := handlers.RouterSettings{
-		UpdateHandler:    updateHandler,
-		GetAllHandler:    getAllHandler,
-		GetMetricHandler: getMetricHandler,
+	// configure router settings
+	routerSettings := &router.Settings{
+		Storage:     &storage,
+		Middlewares: []func(http.Handler) http.Handler{middleware.Logger},
 	}
 
-	err = http.ListenAndServe(url, handlers.NewRouter(rs))
+	// start http server
+	err := http.ListenAndServe(url, router.NewRouter(routerSettings))
 	if !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("server error: %s", err)
+		slog.Error("server error: %s", err)
 	}
 }

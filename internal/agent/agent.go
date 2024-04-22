@@ -3,12 +3,15 @@ package agent
 import (
 	"context"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/logger"
 	"github.com/FlutterDizaster/ya-metrics/internal/memstorage"
 	"github.com/FlutterDizaster/ya-metrics/internal/sender"
 	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
 )
 
 func Setup(endpoint string, reportInterval int, pollInterval int) {
+	logger.Init()
+
 	customMetricsList := []telemetry.Metric{
 		{Name: "Alloc", Kind: telemetry.KindGauge},
 		{Name: "BuckHashSys", Kind: telemetry.KindGauge},

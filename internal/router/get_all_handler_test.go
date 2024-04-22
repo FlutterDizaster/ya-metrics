@@ -1,28 +1,18 @@
-package handlers_test
+package router
 
 import (
-	"net/http"
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/handlers"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
-
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type testGetAllStorage struct {
-	content []view.Metric
-}
-
-func (s *testGetAllStorage) ReadAllMetrics() []view.Metric {
-	return s.content
-}
-
-func TestGetAllHandler_ServeHTTP(t *testing.T) {
+func TestRouter_getAllHandler(t *testing.T) {
 	type want struct {
 		code    int
 		content string
@@ -68,18 +58,18 @@ func TestGetAllHandler_ServeHTTP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := testGetAllStorage{
-				content: tt.values,
-			}
+			r := NewRouter(&Settings{
+				Storage: &MockMetricsStorage{
+					content: tt.values,
+				},
+			})
 
-			handler := handlers.NewGetAllHandler(&storage)
-			srv := httptest.NewServer(handler)
+			server := httptest.NewServer(r)
+			defer server.Close()
 
-			req := resty.New().R()
-			req.Method = http.MethodGet
-			req.URL = srv.URL
+			client := resty.New()
 
-			resp, err := req.Send()
+			resp, err := client.R().Get(fmt.Sprintf("%s/", server.URL))
 
 			require.NoError(t, err, "error making http request")
 			assert.Equal(t, tt.want.code, resp.StatusCode())
@@ -92,8 +82,6 @@ func TestGetAllHandler_ServeHTTP(t *testing.T) {
 			testBoyd = strings.ReplaceAll(testBoyd, "\t", "")
 
 			assert.Equal(t, testBoyd, body)
-
-			srv.Close()
 		})
 	}
 }
