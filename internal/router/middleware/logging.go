@@ -6,22 +6,31 @@ import (
 	"time"
 )
 
+// responseRecorder выступает оберткой над http.ResponseWriter.
+// Сохраняет status code ответа и кол-во байт тела ответа.
 type responseRecorder struct {
 	http.ResponseWriter
 	statusCode int
 	dataLength int
 }
 
+// WriteHeader переопределение функции http.ResponseWriter.WriteHeader(int).
+// Сохраняет статус код ответа, затем передает управление функции http.ResponseWriter.WriteHeader(int).
 func (rec *responseRecorder) WriteHeader(code int) {
 	rec.statusCode = code
 	rec.ResponseWriter.WriteHeader(code)
 }
 
+// Write переопределение функции http.ResponseWriter.Write([]byte).
+// Сохраняет кол-во байт тела ответа, затем передает управление функции http.ResponseWriter.Write([]byte).
 func (rec *responseRecorder) Write(data []byte) (int, error) {
 	rec.dataLength = len(data)
 	return rec.ResponseWriter.Write(data)
 }
 
+// Logger является middleware функцией для использования совместно с chi роутером.
+// Выводит с помощью slog сообщение с указанием метода запрос, URL адреса, времени выполнения в ms,
+// статус код ответа и кол-во байт тела ответа.
 func Logger(
 	next http.Handler,
 ) http.Handler {
