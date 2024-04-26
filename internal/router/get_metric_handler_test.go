@@ -27,9 +27,9 @@ func TestRouter_getMetricHandler(t *testing.T) {
 			name: "simple test",
 			values: []view.Metric{
 				{
-					Name:  "test1",
-					Kind:  "gauge",
-					Value: "54",
+					ID:    "test1",
+					MType: gauge,
+					Value: func(i float64) *float64 { return &i }(54),
 				},
 			},
 			reqURL: "/value/gauge/test1",

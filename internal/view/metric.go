@@ -1,7 +1,8 @@
 package view
 
 type Metric struct {
-	Kind  string
-	Name  string
-	Value string
+	ID    string   `json:"name"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
 }

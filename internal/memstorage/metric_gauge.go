@@ -6,6 +6,8 @@ type metricGauge struct {
 	value float64
 }
 
+var _ Metric = &metricGauge{}
+
 func (metric *metricGauge) UpdateValue(newValue string) error {
 	fValue, err := strconv.ParseFloat(newValue, 64)
 	if err != nil {

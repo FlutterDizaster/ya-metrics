@@ -2,9 +2,21 @@ package memstorage
 
 import (
 	"errors"
+	"log/slog"
+	"strconv"
 	"sync"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+)
+
+const (
+	gauge   = "gauge"
+	counter = "counter"
+)
+
+var (
+	errWrongType = errors.New("missmatch metric types")
+	errNotFound  = errors.New("metric not found")
 )
 
 type Metric interface {
@@ -13,6 +25,7 @@ type Metric interface {
 	Kind() string
 }
 
+// TODO: Переписать Metric Storage, чтобы он использовал view.Metric, дабы избежать маппинга.
 type MetricStorage struct {
 	metrics map[string]Metric
 	mtx     sync.Mutex
@@ -32,15 +45,15 @@ func (ms *MetricStorage) AddMetricValue(kind string, name string, value string) 
 
 	if !ok {
 		switch kind {
-		case "gauge":
+		case gauge:
 			metric = &metricGauge{}
-		case "counter":
+		case counter:
 			metric = &metricCounter{}
 		}
 	}
 
 	if metric.Kind() != kind {
-		return errors.New("missmatch metric types")
+		return errWrongType
 	}
 
 	err := metric.UpdateValue(value)
@@ -73,9 +86,28 @@ func (ms *MetricStorage) getAllMetrics() []view.Metric {
 	metrics := make([]view.Metric, 0)
 
 	for name, metric := range ms.metrics {
+		newMetric := view.Metric{ID: name, MType: metric.Kind()}
+
+		switch metric.Kind() {
+		case gauge:
+			fvalue, err := strconv.ParseFloat(metric.GetValue(), 64)
+			if err != nil {
+				slog.Error("error parsing metric %s value: %s", name, metric.GetValue())
+				continue
+			}
+			newMetric.Value = &fvalue
+		case counter:
+			delta, err := strconv.ParseInt(metric.GetValue(), 10, 64)
+			if err != nil {
+				slog.Error("error parsing metric %s value: %s", name, metric.GetValue())
+				continue
+			}
+			newMetric.Delta = &delta
+		}
+
 		metrics = append(
 			metrics,
-			view.Metric{Name: name, Kind: metric.Kind(), Value: metric.GetValue()},
+			newMetric,
 		)
 	}
 
@@ -88,11 +120,11 @@ func (ms *MetricStorage) GetMetricValue(kind string, name string) (string, error
 
 	value, ok := ms.metrics[name]
 	if !ok {
-		return "", errors.New("metric not found")
+		return "", errNotFound
 	}
 
 	if kind != value.Kind() {
-		return "", errors.New("missmatch value types")
+		return "", errWrongType
 	}
 
 	return value.GetValue(), nil

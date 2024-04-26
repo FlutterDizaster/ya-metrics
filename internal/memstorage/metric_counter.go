@@ -6,6 +6,8 @@ type metricCounter struct {
 	value int64
 }
 
+var _ Metric = &metricCounter{}
+
 func (metric *metricCounter) UpdateValue(newValue string) error {
 	iValue, err := strconv.ParseInt(newValue, 10, 64)
 	if err != nil {

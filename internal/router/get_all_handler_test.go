@@ -27,9 +27,9 @@ func TestRouter_getAllHandler(t *testing.T) {
 			name: "simple test",
 			values: []view.Metric{
 				{
-					Name:  "test",
-					Kind:  "gauge",
-					Value: "555",
+					ID:    "test",
+					MType: "gauge",
+					Value: func(i float64) *float64 { return &i }(555),
 				},
 			},
 			want: want{

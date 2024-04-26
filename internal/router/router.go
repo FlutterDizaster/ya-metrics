@@ -7,6 +7,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+const (
+	gauge   = "gauge"
+	counter = "counter"
+)
+
 // Интерфейс взаимодействия с репозиторием метрик.
 type MetricsStorage interface {
 	AddMetricValue(kind string, name string, value string) error

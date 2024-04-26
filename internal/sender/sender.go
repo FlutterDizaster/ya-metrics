@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
@@ -47,7 +48,15 @@ func (s *Sender) Start(ctx context.Context) {
 func (s *Sender) sendAll() {
 	metrics := s.storage.PullAllMetrics()
 	for _, metric := range metrics {
-		go s.sendMetric(metric.Name, metric.Kind, metric.Value)
+		go s.sendMetric(metric.ID, metric.MType, func() string {
+			switch metric.MType {
+			case "gauge":
+				return strconv.FormatFloat(*metric.Value, 'f', -1, 64)
+			case "counter":
+				return strconv.FormatInt(*metric.Delta, 10)
+			}
+			return ""
+		}())
 	}
 }
 

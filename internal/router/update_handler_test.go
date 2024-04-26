@@ -34,9 +34,9 @@ func TestRouter_updateHandler(t *testing.T) {
 				code:        200,
 				contentType: "text/plain charset=utf-8",
 				metric: view.Metric{
-					Kind:  "counter",
-					Name:  "test",
-					Value: "55",
+					MType: counter,
+					ID:    "test",
+					Delta: func(i int64) *int64 { return &i }(55),
 				},
 			},
 		},

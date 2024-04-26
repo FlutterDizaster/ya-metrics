@@ -22,9 +22,13 @@ func (r *Router) getAllHandler(w http.ResponseWriter, _ *http.Request) {
 				<th>Value</th>
 				{{range .}}
 					<tr>
-						<td>{{.Kind}}</td>
-						<td>{{.Name}}</td>
-						<td>{{.Value}}</td>
+						<td>{{.MType}}</td>
+						<td>{{.ID}}</td>
+						{{if eq .MType "gauge"}}
+							<td>{{.Value}}</td>
+						{{else if eq .MType "counter"}}
+							<td>{{.Delta}}</td>
+						{{end}}
 					</tr>
 				{{end}}
 			</table>
