@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	retryCount             = 5
+	retryCount             = 15
 	retryIntervalInSeconds = 1
 )
 

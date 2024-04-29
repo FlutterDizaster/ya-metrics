@@ -53,7 +53,7 @@ func (mc *MetricsCollector) Start(ctx context.Context) {
 
 func (mc *MetricsCollector) CollectMetrics() {
 	// Сохранение PollCounter
-	mc.saveMetric(view.KindCounter, "PollCounter", "1")
+	mc.saveMetric(view.KindCounter, "PollCount", "1")
 
 	// Сохранение RandomValue
 	rvalue := strconv.FormatFloat(mc.rnd.Float64(), 'f', -1, 64)
