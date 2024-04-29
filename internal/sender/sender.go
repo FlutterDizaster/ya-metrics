@@ -15,6 +15,14 @@ type MetricStorage interface {
 	PullAllMetrics() []view.Metric
 }
 
+type Settings struct {
+	Addr           string
+	ReportInterval int
+	Storage        MetricStorage
+	RetryCount     int
+	RetryInterval  time.Duration
+}
+
 type Sender struct {
 	endpointAddr   string
 	reportInterval int
@@ -22,13 +30,16 @@ type Sender struct {
 	client         *resty.Client
 }
 
-func NewSender(addr string, reportInterval int, storage MetricStorage) Sender {
-	return Sender{
-		endpointAddr:   fmt.Sprintf("http://%s/update", addr),
-		reportInterval: reportInterval,
-		storage:        storage,
+func NewSender(settings *Settings) *Sender {
+	sender := &Sender{
+		endpointAddr:   fmt.Sprintf("http://%s/update", settings.Addr),
+		reportInterval: settings.ReportInterval,
+		storage:        settings.Storage,
 		client:         resty.New(),
 	}
+	sender.client.SetRetryCount(settings.RetryCount)
+	sender.client.SetRetryWaitTime(settings.RetryInterval)
+	return sender
 }
 
 func (s *Sender) Start(ctx context.Context) {

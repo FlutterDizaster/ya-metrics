@@ -2,12 +2,18 @@ package agent
 
 import (
 	"context"
+	"time"
 
 	newmemory "github.com/FlutterDizaster/ya-metrics/internal/repository/new-memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/sender"
 	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
+)
+
+const (
+	retryCount             = 5
+	retryIntervalInSeconds = 1
 )
 
 func Setup(endpoint string, reportInterval int, pollInterval int) {
@@ -47,7 +53,15 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 
 	collector := telemetry.NewMetricCollector(storage, pollInterval, customMetricsList)
 
-	sender := sender.NewSender(endpoint, reportInterval, storage)
+	senderSettings := &sender.Settings{
+		Addr:           endpoint,
+		Storage:        storage,
+		ReportInterval: reportInterval,
+		RetryCount:     retryCount,
+		RetryInterval:  retryIntervalInSeconds * time.Second,
+	}
+
+	sender := sender.NewSender(senderSettings)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
