@@ -8,7 +8,10 @@ import (
 )
 
 func Init() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
 
 	slog.SetDefault(logger)
 }

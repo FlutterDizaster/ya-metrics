@@ -63,6 +63,12 @@ func (r *Router) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
 	// Marshal ответа
 	resp, err := json.Marshal(metric)
 	if err != nil {
+		slog.Error(
+			"marshaling error",
+			"message", err,
+			"metric", metric.ID,
+			"value", metric.StringValue(),
+		)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -6,56 +6,72 @@ import (
 	"time"
 )
 
+type responseData struct {
+	statusCode int
+	dataSize   int
+	data       []byte
+}
+
 // responseRecorder выступает оберткой над http.ResponseWriter.
 // Сохраняет status code ответа и кол-во байт тела ответа.
 type responseRecorder struct {
 	http.ResponseWriter
-	statusCode int
-	dataLength int
+	responseData *responseData
 }
 
 // WriteHeader переопределение функции http.ResponseWriter.WriteHeader(int).
 // Сохраняет статус код ответа, затем передает управление функции http.ResponseWriter.WriteHeader(int).
-func (rec *responseRecorder) WriteHeader(code int) {
-	rec.statusCode = code
-	rec.ResponseWriter.WriteHeader(code)
+func (r *responseRecorder) WriteHeader(code int) {
+	r.ResponseWriter.WriteHeader(code)
+	r.responseData.statusCode = code
 }
 
 // Write переопределение функции http.ResponseWriter.Write([]byte).
 // Сохраняет кол-во байт тела ответа, затем передает управление функции http.ResponseWriter.Write([]byte).
-func (rec *responseRecorder) Write(data []byte) (int, error) {
-	rec.dataLength = len(data)
-	return rec.ResponseWriter.Write(data)
+func (r *responseRecorder) Write(data []byte) (int, error) {
+	if r.responseData.statusCode == 0 {
+		r.WriteHeader(http.StatusOK)
+	}
+	size, err := r.ResponseWriter.Write(data)
+
+	r.responseData.data = data
+	r.responseData.dataSize += size
+	return size, err
 }
 
 // Logger является middleware функцией для использования совместно с chi роутером.
 // Выводит с помощью slog сообщение с указанием метода запрос, URL адреса, времени выполнения в ms,
 // статус код ответа и кол-во байт тела ответа.
-func Logger(
-	next http.Handler,
-) http.Handler {
+func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// start timer
+		startTime := time.Now()
+
 		// create new instance of responseRecorder
+		resData := &responseData{
+			statusCode: 0,
+			dataSize:   0,
+			data:       make([]byte, 0),
+		}
+
 		rec := &responseRecorder{
 			ResponseWriter: w,
-			statusCode:     http.StatusInternalServerError,
-			dataLength:     0,
+			responseData:   resData,
 		}
-		// start timer
-		startTime := time.Now().UnixMilli()
 		next.ServeHTTP(rec, r)
 		// stop timer after execution
-		deltaTime := time.Now().UnixMilli() - startTime
+		deltaTime := time.Since(startTime)
 		// print log message
 		slog.Info(
 			"incoming request",
 			slog.String("method", r.Method),
 			slog.String("url", r.RequestURI),
-			slog.Int64("time_taken_ms", deltaTime),
+			slog.Int64("time_taken_ms", deltaTime.Milliseconds()),
 			slog.Group(
 				"response",
-				slog.Int("status", rec.statusCode),
-				slog.Int("body_length", rec.dataLength),
+				slog.Int("status", rec.responseData.statusCode),
+				slog.Int("body_length", rec.responseData.dataSize),
+				slog.String("body", string(rec.responseData.data)),
 			),
 		)
 	})
