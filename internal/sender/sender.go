@@ -31,6 +31,7 @@ type Sender struct {
 }
 
 func NewSender(settings *Settings) *Sender {
+	slog.Debug("Creating sender")
 	sender := &Sender{
 		endpointAddr:   fmt.Sprintf("http://%s/update", settings.Addr),
 		reportInterval: settings.ReportInterval,
@@ -43,6 +44,7 @@ func NewSender(settings *Settings) *Sender {
 }
 
 func (s *Sender) Start(ctx context.Context) {
+	slog.Debug("Start sending metrics")
 	for {
 		select {
 		case <-ctx.Done():
@@ -57,10 +59,14 @@ func (s *Sender) Start(ctx context.Context) {
 }
 
 func (s *Sender) sendAll() {
+	slog.Debug("Sending metrics")
+	timer := time.Now()
+
 	metrics := s.storage.PullAllMetrics()
 	for _, metric := range metrics {
 		go s.sendMetric(metric)
 	}
+	slog.Debug("Metrics sended", "delta time ms", time.Since(timer).Milliseconds())
 }
 
 func (s *Sender) sendMetric(metric view.Metric) {

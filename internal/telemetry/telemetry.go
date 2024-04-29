@@ -29,6 +29,7 @@ func NewMetricCollector(
 	pollInterval int,
 	metricsList []view.Metric,
 ) MetricsCollector {
+	slog.Debug("Creating metric collector")
 	randSource := rand.NewSource(time.Now().UnixNano())
 	return MetricsCollector{
 		metricsList:  metricsList,
@@ -39,6 +40,7 @@ func NewMetricCollector(
 }
 
 func (mc *MetricsCollector) Start(ctx context.Context) {
+	slog.Debug("Start collecting metrics")
 	for {
 		select {
 		case <-ctx.Done():
@@ -52,6 +54,8 @@ func (mc *MetricsCollector) Start(ctx context.Context) {
 }
 
 func (mc *MetricsCollector) CollectMetrics() {
+	slog.Debug("Collecting metrics")
+	timer := time.Now()
 	// Сохранение PollCounter
 	mc.saveMetric(view.KindCounter, "PollCount", "1")
 
@@ -78,6 +82,7 @@ func (mc *MetricsCollector) CollectMetrics() {
 			continue
 		}
 	}
+	slog.Debug("Metrics collected", "delta time ms", time.Since(timer).Milliseconds())
 }
 
 func (mc *MetricsCollector) saveMetric(kind string, name string, value string) {

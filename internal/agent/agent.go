@@ -68,5 +68,7 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 
 	go collector.Start(ctx)
 
+	time.Sleep(time.Duration(1) * time.Second)
+
 	sender.Start(ctx)
 }
