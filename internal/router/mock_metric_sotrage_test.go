@@ -21,9 +21,9 @@ func (m *MockMetricsStorage) GetMetric(kind string, name string) (view.Metric, e
 	return view.Metric{}, errors.New("not found")
 }
 
-func (m *MockMetricsStorage) AddMetric(metric view.Metric) error {
+func (m *MockMetricsStorage) AddMetric(metric view.Metric) (view.Metric, error) {
 	m.content = append(m.content, metric)
-	return nil
+	return metric, nil
 }
 
 func (m *MockMetricsStorage) ReadAllMetrics() []view.Metric {

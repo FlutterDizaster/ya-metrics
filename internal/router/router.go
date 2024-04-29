@@ -14,7 +14,7 @@ const (
 
 // Интерфейс взаимодействия с репозиторием метрик.
 type MetricsStorage interface {
-	AddMetric(view.Metric) error
+	AddMetric(view.Metric) (view.Metric, error)
 	GetMetric(kind string, name string) (view.Metric, error)
 	ReadAllMetrics() []view.Metric
 }
@@ -51,8 +51,14 @@ func NewRouter(rs *Settings) *Router {
 
 	// настройка роутинга
 	r.Get("/", r.getAllHandler)
-	r.Post("/update/{kind}/{name}/{value}", r.updateHandler)
-	r.Get("/value/{kind}/{name}", r.getMetricHandler)
+	r.Route("/update", func(rr chi.Router) {
+		rr.Post("/", r.updateJSONHandler)
+		rr.Post("/{kind}/{name}/{value}", r.updateHandler)
+	})
+	r.Route("/value", func(rr chi.Router) {
+		rr.Post("/", r.getJSONMetricHandler)
+		rr.Get("/{kind}/{name}", r.getMetricHandler)
+	})
 
 	// настройка ответов на не обрабатываемые сервером запросы
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {

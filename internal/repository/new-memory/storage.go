@@ -35,7 +35,7 @@ func NewMetricStorage() *MetricStorage {
 	}
 }
 
-func (ms *MetricStorage) AddMetric(metric view.Metric) error {
+func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
 	ms.mtx.Lock()
 	defer ms.mtx.Unlock()
 
@@ -45,7 +45,7 @@ func (ms *MetricStorage) AddMetric(metric view.Metric) error {
 	case kindCounter:
 		return ms.addCounter(metric)
 	default:
-		return errWrongType
+		return metric, errWrongType
 	}
 }
 
@@ -83,15 +83,15 @@ func (ms *MetricStorage) PullAllMetrics() []view.Metric {
 	return metrics
 }
 
-func (ms *MetricStorage) addCounter(metric view.Metric) error {
+func (ms *MetricStorage) addCounter(metric view.Metric) (view.Metric, error) {
 	oldMetric, ok := ms.metrics[metric.ID]
 	if !ok {
 		ms.metrics[metric.ID] = metric
-		return nil
+		return metric, nil
 	}
 
 	if oldMetric.MType != metric.MType {
-		return errWrongType
+		return metric, errWrongType
 	}
 
 	delta := *oldMetric.Delta + *metric.Delta
@@ -99,23 +99,23 @@ func (ms *MetricStorage) addCounter(metric view.Metric) error {
 
 	ms.metrics[metric.ID] = metric
 
-	return nil
+	return metric, nil
 }
 
-func (ms *MetricStorage) addGauge(metric view.Metric) error {
+func (ms *MetricStorage) addGauge(metric view.Metric) (view.Metric, error) {
 	oldMetric, ok := ms.metrics[metric.ID]
 	if !ok {
 		ms.metrics[metric.ID] = metric
-		return nil
+		return metric, nil
 	}
 
 	if oldMetric.MType != metric.MType {
-		return errWrongType
+		return metric, errWrongType
 	}
 
 	ms.metrics[metric.ID] = metric
 
-	return nil
+	return metric, nil
 }
 
 func (ms *MetricStorage) getAllMetrics() []view.Metric {

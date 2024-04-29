@@ -14,7 +14,7 @@ import (
 )
 
 type MetricStorage interface {
-	AddMetric(view.Metric) error
+	AddMetric(view.Metric) (view.Metric, error)
 }
 
 type MetricsCollector struct {
@@ -89,7 +89,7 @@ func (mc *MetricsCollector) saveMetric(kind string, name string, value string) {
 	}
 
 	// добавление метрики в storage
-	err = mc.storage.AddMetric(*metric)
+	_, err = mc.storage.AddMetric(*metric)
 	if err != nil {
 		slog.Error("%s metric not added to storage: %s", name, err)
 	}
