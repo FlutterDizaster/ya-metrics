@@ -1,6 +1,8 @@
 package memstorage
 
-import "strconv"
+import (
+	"strconv"
+)
 
 type metricCounter struct {
 	value int64
@@ -22,5 +24,13 @@ func (metric *metricCounter) GetValue() string {
 }
 
 func (metric *metricCounter) Kind() string {
-	return "counter"
+	return metricKindCounter
 }
+
+func (metric *metricCounter) RawValue() interface{} {
+	return metric.value
+}
+
+// func (metric *metricCounter) String() string {
+// 	return strconv.FormatInt(metric.value, 10)
+// }

@@ -14,13 +14,13 @@ func (r *Router) getMetricHandler(w http.ResponseWriter, req *http.Request) {
 	name := chi.URLParam(req, "name")
 
 	// получение метрики из репозитория
-	value, err := r.storage.GetMetricValue(kind, name)
+	metric, err := r.storage.GetMetric(kind, name)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 	}
 
 	// отдача метрики клиенту
-	_, err = w.Write([]byte(value))
+	_, err = w.Write([]byte(metric.StringValue()))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("write metric error: %s", err), http.StatusInternalServerError)
 	}

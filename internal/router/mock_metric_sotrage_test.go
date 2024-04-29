@@ -2,7 +2,6 @@ package router
 
 import (
 	"errors"
-	"strconv"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
@@ -11,49 +10,20 @@ type MockMetricsStorage struct {
 	content []view.Metric
 }
 
-func (m *MockMetricsStorage) AddMetricValue(kind string, name string, value string) error {
-	metric := view.Metric{
-		ID:    name,
-		MType: kind,
-	}
-	switch kind {
-	case gauge:
-		fvalue, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return err
+var _ MetricsStorage = &MockMetricsStorage{}
+
+func (m *MockMetricsStorage) GetMetric(kind string, name string) (view.Metric, error) {
+	for _, metric := range m.content {
+		if metric.ID == name && metric.MType == kind {
+			return metric, nil
 		}
-		metric.Value = &fvalue
-	case counter:
-		delta, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return err
-		}
-		metric.Delta = &delta
 	}
-	m.content = append(m.content, metric)
-	return nil
+	return view.Metric{}, errors.New("not found")
 }
 
-func (m *MockMetricsStorage) GetMetricValue(_ string, name string) (string, error) {
-	var value string
-	var err error
-
-	for _, v := range m.content {
-		if v.ID == name {
-			// value = v.Value
-			switch v.MType {
-			case gauge:
-				value = strconv.FormatFloat(*v.Value, 'f', -1, 64)
-			case counter:
-				value = strconv.FormatInt(*v.Delta, 10)
-			}
-		}
-	}
-	if value == "" {
-		err = errors.New("Not found")
-	}
-
-	return value, err
+func (m *MockMetricsStorage) AddMetric(metric view.Metric) error {
+	m.content = append(m.content, metric)
+	return nil
 }
 
 func (m *MockMetricsStorage) ReadAllMetrics() []view.Metric {

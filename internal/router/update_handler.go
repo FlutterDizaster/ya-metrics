@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -13,9 +14,15 @@ func (r *Router) updateHandler(w http.ResponseWriter, req *http.Request) {
 	name := chi.URLParam(req, "name")
 	value := chi.URLParam(req, "value")
 
+	// создание новой метрики
+	metric, err := view.NewMetric(kind, name, value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
 	// добавление метрики в репозиторий
-	if err := r.storage.AddMetricValue(kind, name, value); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	if nErr := r.storage.AddMetric(*metric); nErr != nil {
+		http.Error(w, nErr.Error(), http.StatusBadRequest)
 		return
 	}
 

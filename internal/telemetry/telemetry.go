@@ -3,47 +3,37 @@ package telemetry
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand"
 	"reflect"
 	"runtime"
 	"strconv"
 	"time"
-)
 
-type ValueKind string
-
-const (
-	KindGauge   ValueKind = "gauge"
-	KindCounter ValueKind = "counter"
+	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
 
 type MetricStorage interface {
-	AddMetricValue(kind string, name string, value string) error
-}
-
-type Metric struct {
-	Name string
-	Kind ValueKind
+	AddMetric(view.Metric) error
 }
 
 type MetricsCollector struct {
-	MetricsList  []Metric
+	metricsList  []view.Metric
 	pollInterval int
-	Storage      MetricStorage
+	storage      MetricStorage
 	rnd          rand.Rand
 }
 
 func NewMetricCollector(
 	storage MetricStorage,
 	pollInterval int,
-	metricsList []Metric,
+	metricsList []view.Metric,
 ) MetricsCollector {
 	randSource := rand.NewSource(time.Now().UnixNano())
 	return MetricsCollector{
-		MetricsList:  metricsList,
+		metricsList:  metricsList,
 		pollInterval: pollInterval,
-		Storage:      storage,
+		storage:      storage,
 		rnd:          *rand.New(randSource),
 	}
 }
@@ -62,40 +52,45 @@ func (mc *MetricsCollector) Start(ctx context.Context) {
 }
 
 func (mc *MetricsCollector) CollectMetrics() {
+	// Сохранение PollCounter
+	mc.saveMetric(view.KindCounter, "PollCounter", "1")
+
+	// Сохранение RandomValue
+	rvalue := strconv.FormatFloat(mc.rnd.Float64(), 'f', -1, 64)
+	mc.saveMetric(view.KindGauge, "RandomValue", rvalue)
+
+	// Получение метрик MemStats
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
-	// Add pollCount metric to storage
-	err := mc.Storage.AddMetricValue(string(KindCounter), "PollCount", strconv.Itoa(1))
-	if err != nil {
-		log.Fatalf("Error %s while adding metric %s", err, "PollCount")
-	}
-
-	// Add random metric to storage
-	randomValue := mc.rnd.Float64()
-	err = mc.Storage.AddMetricValue(
-		string(KindGauge),
-		"RandomValue",
-		strconv.FormatFloat(randomValue, 'f', -1, 64),
-	)
-	if err != nil {
-		log.Fatalf("Error %s while adding metric %s", err, "RandomValue")
-	}
-
-	for _, metric := range mc.MetricsList {
-		// try to get field with name metric.Name from memStats
-		field := reflect.ValueOf(memStats).FieldByName(metric.Name)
-		if field.IsValid() {
-			err = mc.Storage.AddMetricValue(
-				string(metric.Kind),
-				metric.Name,
-				fmt.Sprintf("%v", field.Interface()),
-			)
-			if err != nil {
-				log.Fatalf("Error %s while adding metric %s", err, metric.Name)
+	// Сохранение метрик из списка
+	for _, metric := range mc.metricsList {
+		switch metric.Source {
+		case view.MemStats:
+			// Попытка получить поле metric.ID из memStats
+			field := reflect.ValueOf(memStats).FieldByName(metric.ID)
+			if field.IsValid() {
+				mc.saveMetric(metric.MType, metric.ID, fmt.Sprintf("%v", field.Interface()))
+			} else {
+				slog.Info(fmt.Sprintf("Skip collection of metric \"%s\" because there is no metric with that name.", metric.ID))
 			}
-		} else {
-			log.Printf("Skip collection of metric \"%s\" because there is no metric with that name.", metric.Name)
+		case view.None:
+			continue
 		}
+	}
+}
+
+func (mc *MetricsCollector) saveMetric(kind string, name string, value string) {
+	// создание метрики
+	metric, err := view.NewMetric(kind, name, value)
+	if err != nil {
+		slog.Error("%s metric not created: %s", name, err)
+		return
+	}
+
+	// добавление метрики в storage
+	err = mc.storage.AddMetric(*metric)
+	if err != nil {
+		slog.Error("%s metric not added to storage: %s", name, err)
 	}
 }

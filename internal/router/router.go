@@ -14,8 +14,8 @@ const (
 
 // Интерфейс взаимодействия с репозиторием метрик.
 type MetricsStorage interface {
-	AddMetricValue(kind string, name string, value string) error
-	GetMetricValue(kind string, name string) (string, error)
+	AddMetric(view.Metric) error
+	GetMetric(kind string, name string) (view.Metric, error)
 	ReadAllMetrics() []view.Metric
 }
 

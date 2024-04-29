@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/logger"
-	"github.com/FlutterDizaster/ya-metrics/internal/memstorage"
+	newmemory "github.com/FlutterDizaster/ya-metrics/internal/repository/new-memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/router"
 	"github.com/FlutterDizaster/ya-metrics/internal/router/middleware"
+	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 )
 
@@ -23,11 +23,11 @@ func Setup(url string) {
 	}
 
 	// create new metric storage
-	storage := memstorage.NewMetricStorage()
+	storage := newmemory.NewMetricStorage()
 
 	// configure router settings
 	routerSettings := &router.Settings{
-		Storage:     &storage,
+		Storage:     storage,
 		Middlewares: []func(http.Handler) http.Handler{middleware.Logger},
 	}
 

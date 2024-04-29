@@ -1,6 +1,8 @@
 package memstorage
 
-import "strconv"
+import (
+	"strconv"
+)
 
 type metricGauge struct {
 	value float64
@@ -22,5 +24,13 @@ func (metric *metricGauge) GetValue() string {
 }
 
 func (metric *metricGauge) Kind() string {
-	return "gauge"
+	return metricKindGauge
 }
+
+func (metric *metricGauge) RawValue() interface{} {
+	return metric.value
+}
+
+// func (metric *metricGauge) String() string {
+// 	return strconv.FormatFloat(metric.value, 'f', -1, 64)
+// }

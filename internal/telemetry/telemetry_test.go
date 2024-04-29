@@ -1,11 +1,11 @@
-package telemetry_test
+package telemetry
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
+	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,21 +15,18 @@ type TestMetric struct {
 }
 
 type TestStorage struct {
-	Metrics map[string]TestMetric
+	Metrics []view.Metric
 }
 
-func (ts *TestStorage) AddMetricValue(kind string, name string, value string) error {
-	ts.Metrics[name] = TestMetric{
-		Kind:  kind,
-		Value: value,
-	}
+func (ts *TestStorage) AddMetric(metric view.Metric) error {
+	ts.Metrics = append(ts.Metrics, metric)
 
 	return nil
 }
 
 func TestMetricsCollector_CollectMetrics(t *testing.T) {
 	type fields struct {
-		metricsList []telemetry.Metric
+		metricsList []view.Metric
 		storage     TestStorage
 	}
 
@@ -41,37 +38,40 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 		{
 			name: "simple test",
 			fields: fields{
-				metricsList: []telemetry.Metric{
+				metricsList: []view.Metric{
 					{
-						Name: "Alloc",
-						Kind: "gauge",
+						ID:     "Alloc",
+						MType:  "gauge",
+						Source: view.MemStats,
 					},
 					{
-						Name: "Frees",
-						Kind: "gauge",
+						ID:     "Frees",
+						MType:  "gauge",
+						Source: view.MemStats,
 					},
 				},
-				storage: TestStorage{make(map[string]TestMetric)},
+				storage: TestStorage{make([]view.Metric, 0)},
 			},
 			want: 4,
 		},
 		{
 			name: "wrong name test",
 			fields: fields{
-				metricsList: []telemetry.Metric{
+				metricsList: []view.Metric{
 					{
-						Name: "wrong name",
-						Kind: "count",
+						ID:     "wrong name",
+						MType:  "count",
+						Source: view.MemStats,
 					},
 				},
-				storage: TestStorage{make(map[string]TestMetric)},
+				storage: TestStorage{make([]view.Metric, 0)},
 			},
 			want: 2,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mc := telemetry.NewMetricCollector(&tt.fields.storage, 2, tt.fields.metricsList)
+			mc := NewMetricCollector(&tt.fields.storage, 2, tt.fields.metricsList)
 
 			mc.CollectMetrics()
 			assert.Len(t, tt.fields.storage.Metrics, tt.want)
@@ -82,7 +82,7 @@ func TestMetricsCollector_CollectMetrics(t *testing.T) {
 
 func TestMetricsCollector_Start(t *testing.T) {
 	type fields struct {
-		metricsList  []telemetry.Metric
+		metricsList  []view.Metric
 		storage      TestStorage
 		pollInterval int
 	}
@@ -95,17 +95,19 @@ func TestMetricsCollector_Start(t *testing.T) {
 		{
 			name: "simple test",
 			fields: fields{
-				metricsList: []telemetry.Metric{
+				metricsList: []view.Metric{
 					{
-						Name: "Alloc",
-						Kind: "gauge",
+						ID:     "Alloc",
+						MType:  "gauge",
+						Source: view.MemStats,
 					},
 					{
-						Name: "Frees",
-						Kind: "gauge",
+						ID:     "Frees",
+						MType:  "gauge",
+						Source: view.MemStats,
 					},
 				},
-				storage:      TestStorage{make(map[string]TestMetric)},
+				storage:      TestStorage{make([]view.Metric, 0)},
 				pollInterval: 1,
 			},
 			testDuration: 3,
@@ -114,7 +116,7 @@ func TestMetricsCollector_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mc := telemetry.NewMetricCollector(
+			mc := NewMetricCollector(
 				&tt.fields.storage,
 				tt.fields.pollInterval,
 				tt.fields.metricsList,
@@ -129,7 +131,7 @@ func TestMetricsCollector_Start(t *testing.T) {
 
 			mc.Start(ctx)
 			//TODO: Проверки
-			assert.Len(t, mc.MetricsList, tt.want)
+			assert.Len(t, mc.metricsList, tt.want)
 		})
 	}
 }

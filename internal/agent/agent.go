@@ -3,50 +3,51 @@ package agent
 import (
 	"context"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/logger"
-	"github.com/FlutterDizaster/ya-metrics/internal/memstorage"
+	newmemory "github.com/FlutterDizaster/ya-metrics/internal/repository/new-memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/sender"
 	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
+	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
 func Setup(endpoint string, reportInterval int, pollInterval int) {
 	logger.Init()
 
-	customMetricsList := []telemetry.Metric{
-		{Name: "Alloc", Kind: telemetry.KindGauge},
-		{Name: "BuckHashSys", Kind: telemetry.KindGauge},
-		{Name: "Frees", Kind: telemetry.KindGauge},
-		{Name: "GCCPUFraction", Kind: telemetry.KindGauge},
-		{Name: "GCSys", Kind: telemetry.KindGauge},
-		{Name: "HeapAlloc", Kind: telemetry.KindGauge},
-		{Name: "HeapIdle", Kind: telemetry.KindGauge},
-		{Name: "HeapInuse", Kind: telemetry.KindGauge},
-		{Name: "HeapObjects", Kind: telemetry.KindGauge},
-		{Name: "HeapReleased", Kind: telemetry.KindGauge},
-		{Name: "HeapSys", Kind: telemetry.KindGauge},
-		{Name: "LastGC", Kind: telemetry.KindGauge},
-		{Name: "Lookups", Kind: telemetry.KindGauge},
-		{Name: "MCacheInuse", Kind: telemetry.KindGauge},
-		{Name: "MCacheSys", Kind: telemetry.KindGauge},
-		{Name: "MSpanInuse", Kind: telemetry.KindGauge},
-		{Name: "MSpanSys", Kind: telemetry.KindGauge},
-		{Name: "Mallocs", Kind: telemetry.KindGauge},
-		{Name: "NextGC", Kind: telemetry.KindGauge},
-		{Name: "NumForcedGC", Kind: telemetry.KindGauge},
-		{Name: "NumGC", Kind: telemetry.KindGauge},
-		{Name: "OtherSys", Kind: telemetry.KindGauge},
-		{Name: "PauseTotalNs", Kind: telemetry.KindGauge},
-		{Name: "StackInuse", Kind: telemetry.KindGauge},
-		{Name: "StackSys", Kind: telemetry.KindGauge},
-		{Name: "Sys", Kind: telemetry.KindGauge},
-		{Name: "TotalAlloc", Kind: telemetry.KindGauge},
+	customMetricsList := []view.Metric{
+		{ID: "Alloc", MType: "gauge", Source: view.MemStats},
+		{ID: "BuckHashSys", MType: "gauge", Source: view.MemStats},
+		{ID: "Frees", MType: "gauge", Source: view.MemStats},
+		{ID: "GCCPUFraction", MType: "gauge", Source: view.MemStats},
+		{ID: "GCSys", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapAlloc", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapIdle", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapInuse", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapObjects", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapReleased", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapSys", MType: "gauge", Source: view.MemStats},
+		{ID: "LastGC", MType: "gauge", Source: view.MemStats},
+		{ID: "Lookups", MType: "gauge", Source: view.MemStats},
+		{ID: "MCacheInuse", MType: "gauge", Source: view.MemStats},
+		{ID: "MCacheSys", MType: "gauge", Source: view.MemStats},
+		{ID: "MSpanInuse", MType: "gauge", Source: view.MemStats},
+		{ID: "MSpanSys", MType: "gauge", Source: view.MemStats},
+		{ID: "Mallocs", MType: "gauge", Source: view.MemStats},
+		{ID: "NextGC", MType: "gauge", Source: view.MemStats},
+		{ID: "NumForcedGC", MType: "gauge", Source: view.MemStats},
+		{ID: "NumGC", MType: "gauge", Source: view.MemStats},
+		{ID: "OtherSys", MType: "gauge", Source: view.MemStats},
+		{ID: "PauseTotalNs", MType: "gauge", Source: view.MemStats},
+		{ID: "StackInuse", MType: "gauge", Source: view.MemStats},
+		{ID: "StackSys", MType: "gauge", Source: view.MemStats},
+		{ID: "Sys", MType: "gauge", Source: view.MemStats},
+		{ID: "TotalAlloc", MType: "gauge", Source: view.MemStats},
 	}
 
-	storage := memstorage.NewMetricStorage()
+	storage := newmemory.NewMetricStorage()
 
-	collector := telemetry.NewMetricCollector(&storage, pollInterval, customMetricsList)
+	collector := telemetry.NewMetricCollector(storage, pollInterval, customMetricsList)
 
-	sender := sender.NewSender(endpoint, reportInterval, &storage)
+	sender := sender.NewSender(endpoint, reportInterval, storage)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
