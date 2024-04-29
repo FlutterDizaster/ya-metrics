@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"log/slog"
 	"net/http"
 	"time"
@@ -47,6 +48,15 @@ func Logger(next http.Handler) http.Handler {
 		// start timer
 		startTime := time.Now()
 
+		// request body
+		var buf bytes.Buffer
+		req := *r
+
+		_, err := buf.ReadFrom(req.Body)
+		if err != nil {
+			slog.Error("error reading body")
+		}
+
 		// create new instance of responseRecorder
 		resData := &responseData{
 			statusCode: 0,
@@ -67,6 +77,10 @@ func Logger(next http.Handler) http.Handler {
 			slog.String("method", r.Method),
 			slog.String("url", r.RequestURI),
 			slog.Int64("time_taken_ms", deltaTime.Milliseconds()),
+			slog.Group(
+				"request",
+				slog.String("body", buf.String()),
+			),
 			slog.Group(
 				"response",
 				slog.Int("status", rec.responseData.statusCode),
