@@ -65,7 +65,6 @@ func (r *Router) getJSONMetricHandler(w http.ResponseWriter, req *http.Request) 
 
 	// записываем ответ
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Add("Content-Type", "charset=utf-8")
 	if _, err = w.Write(resp); err != nil {
 		slog.Error("writing response error", "message", err)
 		http.Error(w, fmt.Sprintf("write metric error: %s", err), http.StatusInternalServerError)
