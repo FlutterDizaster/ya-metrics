@@ -2,13 +2,13 @@ package sender
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
-	"strconv"
+	"log/slog"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/go-resty/resty/v2"
 )
 
 type MetricStorage interface {
@@ -16,18 +16,18 @@ type MetricStorage interface {
 }
 
 type Sender struct {
-	serverAddr     string
+	endpointAddr   string
 	reportInterval int
 	storage        MetricStorage
-	client         http.Client
+	client         *resty.Client
 }
 
 func NewSender(addr string, reportInterval int, storage MetricStorage) Sender {
 	return Sender{
-		serverAddr:     addr,
+		endpointAddr:   fmt.Sprintf("http://%s/update", addr),
 		reportInterval: reportInterval,
 		storage:        storage,
-		client:         http.Client{},
+		client:         resty.New(),
 	}
 }
 
@@ -48,43 +48,28 @@ func (s *Sender) Start(ctx context.Context) {
 func (s *Sender) sendAll() {
 	metrics := s.storage.PullAllMetrics()
 	for _, metric := range metrics {
-		go s.sendMetric(metric.ID, metric.MType, func() string {
-			switch metric.MType {
-			case "gauge":
-				return strconv.FormatFloat(*metric.Value, 'f', -1, 64)
-			case "counter":
-				return strconv.FormatInt(*metric.Delta, 10)
-			}
-			return ""
-		}())
+		go s.sendMetric(metric)
 	}
 }
 
-func (s *Sender) sendMetric(name string, kind string, value string) {
-	// creating url
-	url := fmt.Sprintf("http://%s/update/%s/%s/%s", s.serverAddr, kind, name, value)
-
-	// creating request
-	req, err := http.NewRequestWithContext(context.TODO(), http.MethodPost, url, http.NoBody)
+func (s *Sender) sendMetric(metric view.Metric) {
+	// Marshal метрики
+	metricBytes, err := json.Marshal(metric)
 	if err != nil {
-		log.Printf("unexpected error in sendMetric function\n%s", err)
+		slog.Error("marshaling error", "message", err)
 	}
 
-	req.Header.Set("Content-Type", "text/plain")
+	// Создание запроса
+	resp, err := s.client.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody(metricBytes).
+		Post(s.endpointAddr)
 
-	resp, err := s.client.Do(req)
-	if err != nil {
-		log.Printf("connection error \"%s\" when trying to send a metric %s", err, name)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		//TODO: add error processing
-		log.Printf(
-			"unexpected status code \"%s\" when trying to send a metric name: %s",
-			resp.Status,
-			name,
-		)
-	}
+	slog.Info(
+		"request send",
+		"error", err,
+		"status", resp.StatusCode(),
+		"metric", metric.ID,
+		"value", metric.StringValue(),
+	)
 }
