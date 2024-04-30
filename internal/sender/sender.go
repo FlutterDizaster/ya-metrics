@@ -47,12 +47,16 @@ func (s *Sender) Start(_ context.Context) {
 	for {
 		s.cond.L.Lock()
 		// Ждем добавления метрик
+		slog.Debug("Waiting metrics")
+
 		s.cond.Wait()
-		// Ждем тикер
-		<-ticker.C
+
 		s.sendAll(s.metricsBuffer)
 
 		s.cond.L.Unlock()
+
+		// Ждем тикер
+		<-ticker.C
 	}
 }
 
@@ -93,5 +97,5 @@ func (s *Sender) AddMetrics(metrics []view.Metric) {
 
 	s.metricsBuffer = append(s.metricsBuffer, metrics...)
 
-	s.cond.Signal()
+	s.cond.Broadcast()
 }

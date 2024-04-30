@@ -83,9 +83,10 @@ func (mc *MetricsCollector) CollectMetrics() {
 			continue
 		}
 	}
-	slog.Debug("Metrics collected")
+	slog.Debug("Adding metrics")
 	mc.worker.AddMetrics(mc.metricsBuffer)
 	mc.metricsBuffer = make([]view.Metric, 0)
+	slog.Debug("Metrics collected and added")
 }
 
 func (mc *MetricsCollector) saveMetric(kind string, name string, value string) {
