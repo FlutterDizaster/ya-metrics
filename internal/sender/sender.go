@@ -51,7 +51,7 @@ func (s *Sender) Start(_ context.Context) {
 
 		s.cond.Wait()
 
-		s.sendAll(s.metricsBuffer)
+		go s.sendAll(s.metricsBuffer)
 
 		s.cond.L.Unlock()
 
@@ -64,7 +64,7 @@ func (s *Sender) sendAll(metrics []view.Metric) {
 	slog.Debug("Sending metrics")
 
 	for _, metric := range metrics {
-		go s.sendMetric(metric)
+		s.sendMetric(metric)
 	}
 	slog.Debug("Metrics sended")
 }
