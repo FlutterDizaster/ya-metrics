@@ -2,7 +2,7 @@ package router
 
 import (
 	"bytes"
-	"encoding/json"
+
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -49,7 +49,7 @@ func (r *Router) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Unmarshal тела запроса
-	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
+	if err = metric.UnmarshalJSON(buf.Bytes()); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -61,7 +61,7 @@ func (r *Router) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Marshal ответа
-	resp, err := json.Marshal(metric)
+	resp, err := metric.MarshalJSON()
 	if err != nil {
 		slog.Error(
 			"marshaling error",

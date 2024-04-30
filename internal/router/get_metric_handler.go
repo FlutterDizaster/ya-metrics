@@ -2,7 +2,6 @@ package router
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -45,7 +44,7 @@ func (r *Router) getJSONMetricHandler(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// Unmarshal тела запроса
-	if err = json.Unmarshal(buf.Bytes(), &reqMetric); err != nil {
+	if err = reqMetric.UnmarshalJSON(buf.Bytes()); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -57,7 +56,7 @@ func (r *Router) getJSONMetricHandler(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// Marshal ответа
-	resp, err := json.Marshal(metric)
+	resp, err := metric.MarshalJSON()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

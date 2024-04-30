@@ -5,6 +5,8 @@ go 1.21.0
 require github.com/go-resty/resty/v2 v2.11.0
 
 require (
+	github.com/josharian/intern v1.0.0 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	golang.org/x/sys v0.13.0 // indirect

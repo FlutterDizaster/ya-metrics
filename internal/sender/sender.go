@@ -2,7 +2,6 @@ package sender
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -71,7 +70,7 @@ func (s *Sender) sendAll(metrics []view.Metric) {
 
 func (s *Sender) sendMetric(metric view.Metric) {
 	// Marshal метрики
-	metricBytes, err := json.Marshal(metric)
+	metricBytes, err := metric.MarshalJSON()
 	if err != nil {
 		slog.Error("marshaling error", "message", err)
 	}
