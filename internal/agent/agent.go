@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	newmemory "github.com/FlutterDizaster/ya-metrics/internal/repository/new-memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/sender"
 	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
@@ -49,13 +48,8 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 		{ID: "TotalAlloc", MType: "gauge", Source: view.MemStats},
 	}
 
-	storage := newmemory.NewMetricStorage()
-
-	collector := telemetry.NewMetricCollector(storage, pollInterval, customMetricsList)
-
 	senderSettings := &sender.Settings{
 		Addr:           endpoint,
-		Storage:        storage,
 		ReportInterval: reportInterval,
 		RetryCount:     retryCount,
 		RetryInterval:  retryIntervalInSeconds * time.Second,
@@ -63,12 +57,12 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 
 	sender := sender.NewSender(senderSettings)
 
+	collector := telemetry.NewMetricCollector(sender, pollInterval, customMetricsList)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go collector.Start(ctx)
-
-	time.Sleep(time.Duration(1) * time.Second)
 
 	sender.Start(ctx)
 }

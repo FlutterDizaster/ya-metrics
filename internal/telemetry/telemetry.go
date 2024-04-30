@@ -13,49 +13,50 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
 
-type MetricStorage interface {
-	AddMetric(view.Metric) (view.Metric, error)
+type Worker interface {
+	AddMetrics([]view.Metric)
 }
 
 type MetricsCollector struct {
-	metricsList  []view.Metric
-	pollInterval int
-	storage      MetricStorage
-	rnd          rand.Rand
+	metricsList   []view.Metric
+	metricsBuffer []view.Metric
+	pollInterval  int
+	worker        Worker
+	rnd           rand.Rand
 }
 
 func NewMetricCollector(
-	storage MetricStorage,
+	worker Worker,
 	pollInterval int,
 	metricsList []view.Metric,
 ) MetricsCollector {
 	slog.Debug("Creating metric collector")
 	randSource := rand.NewSource(time.Now().UnixNano())
 	return MetricsCollector{
-		metricsList:  metricsList,
-		pollInterval: pollInterval,
-		storage:      storage,
-		rnd:          *rand.New(randSource),
+		metricsList:   metricsList,
+		metricsBuffer: make([]view.Metric, 0),
+		pollInterval:  pollInterval,
+		worker:        worker,
+		rnd:           *rand.New(randSource),
 	}
 }
 
 func (mc *MetricsCollector) Start(ctx context.Context) {
 	slog.Debug("Start collecting metrics")
+	ticker := time.NewTicker(time.Duration(mc.pollInterval) * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			mc.CollectMetrics()
 			return
-		default:
+		case <-ticker.C:
 			mc.CollectMetrics()
-			time.Sleep(time.Duration(mc.pollInterval) * time.Second)
 		}
 	}
 }
 
 func (mc *MetricsCollector) CollectMetrics() {
 	slog.Debug("Collecting metrics")
-	timer := time.Now()
 	// Сохранение PollCounter
 	mc.saveMetric(view.KindCounter, "PollCount", "1")
 
@@ -82,7 +83,9 @@ func (mc *MetricsCollector) CollectMetrics() {
 			continue
 		}
 	}
-	slog.Debug("Metrics collected", "delta time ms", time.Since(timer).Milliseconds())
+	slog.Debug("Metrics collected")
+	mc.worker.AddMetrics(mc.metricsBuffer)
+	mc.metricsBuffer = make([]view.Metric, 0)
 }
 
 func (mc *MetricsCollector) saveMetric(kind string, name string, value string) {
@@ -93,9 +96,6 @@ func (mc *MetricsCollector) saveMetric(kind string, name string, value string) {
 		return
 	}
 
-	// добавление метрики в storage
-	_, err = mc.storage.AddMetric(*metric)
-	if err != nil {
-		slog.Error("%s metric not added to storage: %s", name, err)
-	}
+	// добавление метрики в буффер
+	mc.metricsBuffer = append(mc.metricsBuffer, *metric)
 }

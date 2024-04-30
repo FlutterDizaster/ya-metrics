@@ -5,68 +5,64 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/go-resty/resty/v2"
 )
 
-type MetricStorage interface {
-	PullAllMetrics() []view.Metric
-}
-
 type Settings struct {
 	Addr           string
 	ReportInterval int
-	Storage        MetricStorage
 	RetryCount     int
 	RetryInterval  time.Duration
 }
 
 type Sender struct {
+	metricsBuffer  []view.Metric
 	endpointAddr   string
 	reportInterval int
-	storage        MetricStorage
 	client         *resty.Client
+	cond           *sync.Cond
 }
 
 func NewSender(settings *Settings) *Sender {
 	slog.Debug("Creating sender")
 	sender := &Sender{
+		metricsBuffer:  make([]view.Metric, 0),
 		endpointAddr:   fmt.Sprintf("http://%s/update", settings.Addr),
 		reportInterval: settings.ReportInterval,
-		storage:        settings.Storage,
 		client:         resty.New(),
+		cond:           sync.NewCond(&sync.Mutex{}),
 	}
 	sender.client.SetRetryCount(settings.RetryCount)
 	sender.client.SetRetryWaitTime(settings.RetryInterval)
 	return sender
 }
 
-func (s *Sender) Start(ctx context.Context) {
+func (s *Sender) Start(_ context.Context) {
 	slog.Debug("Start sending metrics")
+	ticker := time.NewTicker(time.Duration(s.reportInterval) * time.Second)
 	for {
-		select {
-		case <-ctx.Done():
-			time.Sleep(1 * time.Second)
-			s.sendAll()
-			return
-		default:
-			s.sendAll()
-			time.Sleep(time.Duration(s.reportInterval) * time.Second)
-		}
+		s.cond.L.Lock()
+		// Ждем добавления метрик
+		s.cond.Wait()
+		// Ждем тикер
+		<-ticker.C
+		s.sendAll(s.metricsBuffer)
+
+		s.cond.L.Unlock()
 	}
 }
 
-func (s *Sender) sendAll() {
+func (s *Sender) sendAll(metrics []view.Metric) {
 	slog.Debug("Sending metrics")
-	timer := time.Now()
 
-	metrics := s.storage.PullAllMetrics()
 	for _, metric := range metrics {
 		go s.sendMetric(metric)
 	}
-	slog.Debug("Metrics sended", "delta time ms", time.Since(timer).Milliseconds())
+	slog.Debug("Metrics sended")
 }
 
 func (s *Sender) sendMetric(metric view.Metric) {
@@ -89,4 +85,13 @@ func (s *Sender) sendMetric(metric view.Metric) {
 		"metric", metric.ID,
 		"value", metric.StringValue(),
 	)
+}
+
+func (s *Sender) AddMetrics(metrics []view.Metric) {
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
+
+	s.metricsBuffer = append(s.metricsBuffer, metrics...)
+
+	s.cond.Signal()
 }

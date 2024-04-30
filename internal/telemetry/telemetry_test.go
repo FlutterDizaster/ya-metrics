@@ -18,10 +18,8 @@ type TestStorage struct {
 	Metrics []view.Metric
 }
 
-func (ts *TestStorage) AddMetric(metric view.Metric) (view.Metric, error) {
-	ts.Metrics = append(ts.Metrics, metric)
-
-	return metric, nil
+func (ts *TestStorage) AddMetrics(metrics []view.Metric) {
+	ts.Metrics = append(ts.Metrics, metrics...)
 }
 
 func TestMetricsCollector_CollectMetrics(t *testing.T) {
