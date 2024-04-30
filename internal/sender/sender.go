@@ -95,7 +95,8 @@ func (s *Sender) AddMetrics(metrics []view.Metric) {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
-	s.metricsBuffer = append(s.metricsBuffer, metrics...)
+	// s.metricsBuffer = append(s.metricsBuffer, metrics...)
+	s.metricsBuffer = metrics
 
 	s.cond.Broadcast()
 }
