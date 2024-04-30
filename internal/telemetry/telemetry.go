@@ -49,9 +49,10 @@ func (mc *MetricsCollector) Start(ctx context.Context) {
 		case <-ctx.Done():
 			mc.CollectMetrics()
 			return
-		case <-ticker.C:
+		default:
 			mc.CollectMetrics()
 		}
+		<-ticker.C
 	}
 }
 
