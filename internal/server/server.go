@@ -31,6 +31,7 @@ func Setup(url string) {
 		Middlewares: []func(http.Handler) http.Handler{
 			middleware.Logger,
 			middleware.GzipCompressor,
+			middleware.GzipUncompressor,
 		},
 	}
 

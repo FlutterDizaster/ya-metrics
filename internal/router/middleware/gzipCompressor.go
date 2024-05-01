@@ -28,7 +28,7 @@ func (w *gzipResponseWriter) Write(data []byte) (int, error) {
 	return w.Writer.Write(data)
 }
 
-// Compressor является middleware функцией для использования совместно с chi роутером.
+// GzipCompressor является middleware функцией для использования совместно с chi роутером.
 // Сжимает тело ответа, если клиент принимает его в таком виде.
 func GzipCompressor(next http.Handler) http.Handler {
 	pool := gzipCompressorPool()
