@@ -64,6 +64,7 @@ func Logger(next http.Handler) http.Handler {
 			slog.String("method", r.Method),
 			slog.String("url", r.RequestURI),
 			slog.String("accept-encoding", r.Header.Get("Accept-Encoding")),
+			slog.String("content-encoding", r.Header.Get("Content-Encoding")),
 			slog.Int64("time_taken_ms", deltaTime.Milliseconds()),
 			slog.Group(
 				"response",

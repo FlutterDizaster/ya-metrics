@@ -1,6 +1,8 @@
 package sender
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"log/slog"
@@ -72,14 +74,25 @@ func (s *Sender) sendMetric(metric view.Metric) {
 	// Marshal метрики
 	metricBytes, err := metric.MarshalJSON()
 	if err != nil {
-		slog.Error("marshaling error", "message", err)
+		slog.Error("marshaling error", "error", err)
+		return
 	}
 
 	// Создание запроса
-	resp, err := s.client.R().
-		SetHeader("Content-Type", "application/json").
-		SetBody(metricBytes).
-		Post(s.endpointAddr)
+	req := s.client.R().
+		SetHeader("Content-Type", "application/json")
+
+	// Сжатие метрики
+	data, err := compressData(metricBytes)
+	if err != nil {
+		req.SetBody(metricBytes)
+	} else {
+		req.SetHeader("Content-Encoding", "gzip").
+			SetBody(data)
+	}
+
+	// Отправка запроса
+	resp, err := req.Post(s.endpointAddr)
 
 	slog.Info(
 		"request send",
@@ -98,4 +111,27 @@ func (s *Sender) AddMetrics(metrics []view.Metric) {
 	s.metricsBuffer = metrics
 
 	s.cond.Broadcast()
+}
+
+func compressData(data []byte) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	gz, err := gzip.NewWriterLevel(buf, gzip.BestSpeed)
+	if err != nil {
+		slog.Error("failed init gzip writer", "error", err)
+		return []byte{}, err
+	}
+
+	_, err = gz.Write(data)
+	if err != nil {
+		slog.Error("compress error", "error", err)
+		return []byte{}, err
+	}
+
+	err = gz.Close()
+	if err != nil {
+		slog.Error("compress error", "error", err)
+		return []byte{}, err
+	}
+
+	return buf.Bytes(), nil
 }
