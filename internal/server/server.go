@@ -28,7 +28,7 @@ func Setup(url string) {
 	// configure router settings
 	routerSettings := &router.Settings{
 		Storage:     storage,
-		Middlewares: []func(http.Handler) http.Handler{middleware.Logger},
+		Middlewares: []func(http.Handler) http.Handler{middleware.Logger, middleware.Compressor},
 	}
 
 	// start http server

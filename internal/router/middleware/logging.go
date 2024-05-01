@@ -9,7 +9,6 @@ import (
 type responseData struct {
 	statusCode int
 	dataSize   int
-	data       []byte
 }
 
 // responseRecorder выступает оберткой над http.ResponseWriter.
@@ -34,7 +33,6 @@ func (r *responseRecorder) Write(data []byte) (int, error) {
 	}
 	size, err := r.ResponseWriter.Write(data)
 
-	r.responseData.data = data
 	r.responseData.dataSize += size
 	return size, err
 }
@@ -51,7 +49,6 @@ func Logger(next http.Handler) http.Handler {
 		resData := &responseData{
 			statusCode: 0,
 			dataSize:   0,
-			data:       make([]byte, 0),
 		}
 
 		rec := &responseRecorder{
@@ -66,12 +63,12 @@ func Logger(next http.Handler) http.Handler {
 			"incoming request",
 			slog.String("method", r.Method),
 			slog.String("url", r.RequestURI),
+			slog.String("accept-encoding", r.Header.Get("Accept-Encoding")),
 			slog.Int64("time_taken_ms", deltaTime.Milliseconds()),
 			slog.Group(
 				"response",
 				slog.Int("status", rec.responseData.statusCode),
 				slog.Int("body_length", rec.responseData.dataSize),
-				slog.String("body", string(rec.responseData.data)),
 			),
 		)
 	})
