@@ -11,16 +11,16 @@ import (
 func (w *Worker) startSending(ctx context.Context) {
 	slog.Debug("Start sending metrics")
 	ticker := time.NewTicker(time.Duration(w.reportInterval) * time.Second)
+	// Первая отправка метрик
+	w.send()
 	for {
 		select {
 		case <-ctx.Done():
 			w.send()
 			// Выходим из функции
 			return
-		default:
+		case <-ticker.C:
 			w.send()
-			// Ждем тикер
-			<-ticker.C
 		}
 	}
 }

@@ -11,15 +11,16 @@ import (
 func (w *Worker) startCollecting(ctx context.Context) {
 	slog.Debug("Start collecting metrics")
 	ticker := time.NewTicker(time.Duration(w.pollInterval) * time.Second)
+	// Первая сборка метрик
+	w.collect()
 	for {
 		select {
 		case <-ctx.Done():
 			w.collect()
 			return
-		default:
+		case <-ticker.C:
 			w.collect()
 		}
-		<-ticker.C
 	}
 }
 
