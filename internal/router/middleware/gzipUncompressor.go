@@ -12,8 +12,9 @@ import (
 // Распаковывает тело запроса, если клиент отправил его в таком виде.
 func GzipUncompressor(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Content-Encoding"), "gzip") && r.Body != nil {
+		if !strings.Contains(r.Header.Get("Content-Encoding"), "gzip") || r.Body == nil {
 			next.ServeHTTP(rw, r)
+			return
 		}
 
 		// Создание ридера
