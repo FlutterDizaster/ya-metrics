@@ -2,11 +2,13 @@ package agent
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/sender"
 	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/FlutterDizaster/ya-metrics/internal/worker"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
@@ -48,21 +50,33 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 		{ID: "TotalAlloc", MType: "gauge", Source: view.MemStats},
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	senderSettings := &sender.Settings{
-		Addr:           endpoint,
-		ReportInterval: reportInterval,
-		RetryCount:     retryCount,
-		RetryInterval:  retryIntervalMS * time.Millisecond,
+		Addr:          endpoint,
+		RetryCount:    retryCount,
+		RetryInterval: retryIntervalMS * time.Millisecond,
 	}
 
 	sender := sender.NewSender(senderSettings)
 
-	collector := telemetry.NewMetricCollector(sender, pollInterval, customMetricsList)
+	collector := telemetry.NewMetricCollector(customMetricsList)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	workerSettings := &worker.Settings{
+		Collector:      collector,
+		Sender:         sender,
+		ReportInterval: reportInterval,
+		PollInterval:   pollInterval,
+	}
 
-	go collector.Start(ctx)
+	w, err := worker.NewWorker(workerSettings)
+	if err != nil {
+		slog.Error(
+			"worker error",
+			slog.String("error", err.Error()),
+		)
+	}
 
-	sender.Start(ctx)
+	w.Start(ctx)
 }

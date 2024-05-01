@@ -1,7 +1,6 @@
 package telemetry
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -20,44 +19,22 @@ type Worker interface {
 type MetricsCollector struct {
 	metricsList   []view.Metric
 	metricsBuffer []view.Metric
-	pollInterval  int
-	worker        Worker
 	rnd           rand.Rand
 }
 
-func NewMetricCollector(
-	worker Worker,
-	pollInterval int,
-	metricsList []view.Metric,
-) MetricsCollector {
+func NewMetricCollector(metricsList []view.Metric) *MetricsCollector {
 	slog.Debug("Creating metric collector")
 	randSource := rand.NewSource(time.Now().UnixNano())
-	return MetricsCollector{
-		metricsList:   metricsList,
-		metricsBuffer: make([]view.Metric, 0),
-		pollInterval:  pollInterval,
-		worker:        worker,
-		rnd:           *rand.New(randSource),
+	return &MetricsCollector{
+		metricsList: metricsList,
+		rnd:         *rand.New(randSource),
 	}
 }
 
-func (mc *MetricsCollector) Start(ctx context.Context) {
-	slog.Debug("Start collecting metrics")
-	ticker := time.NewTicker(time.Duration(mc.pollInterval) * time.Second)
-	for {
-		select {
-		case <-ctx.Done():
-			mc.CollectMetrics()
-			return
-		default:
-			mc.CollectMetrics()
-		}
-		<-ticker.C
-	}
-}
-
-func (mc *MetricsCollector) CollectMetrics() {
+func (mc *MetricsCollector) CollectMetrics() []view.Metric {
 	slog.Debug("Collecting metrics")
+	// Очистка буфера
+	mc.metricsBuffer = make([]view.Metric, 0)
 	// Сохранение PollCounter
 	mc.saveMetric(view.KindCounter, "PollCount", "1")
 
@@ -85,9 +62,7 @@ func (mc *MetricsCollector) CollectMetrics() {
 		}
 	}
 	slog.Debug("Adding metrics")
-	mc.worker.AddMetrics(mc.metricsBuffer)
-	mc.metricsBuffer = make([]view.Metric, 0)
-	slog.Debug("Metrics collected and added")
+	return mc.metricsBuffer
 }
 
 func (mc *MetricsCollector) saveMetric(kind string, name string, value string) {
@@ -97,7 +72,6 @@ func (mc *MetricsCollector) saveMetric(kind string, name string, value string) {
 		slog.Error("%s metric not created: %s", name, err)
 		return
 	}
-
 	// добавление метрики в буффер
 	mc.metricsBuffer = append(mc.metricsBuffer, *metric)
 }
