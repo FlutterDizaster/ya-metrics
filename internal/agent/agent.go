@@ -3,6 +3,9 @@ package agent
 import (
 	"context"
 	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/sender"
@@ -50,7 +53,7 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 		{ID: "TotalAlloc", MType: "gauge", Source: view.MemStats},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	senderSettings := &sender.Settings{
