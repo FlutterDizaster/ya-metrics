@@ -3,6 +3,7 @@ package router
 import (
 	"html/template"
 	"net/http"
+	"sort"
 )
 
 // Handler отдающий таблицу со всеми имеющимися метриками и их значениями.
@@ -45,6 +46,9 @@ func (r *Router) getAllHandler(w http.ResponseWriter, _ *http.Request) {
 
 	// получение всех метрик из репозитория
 	metrics := r.storage.ReadAllMetrics()
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].ID < metrics[j].ID
+	})
 
 	// передача ответа клиенту
 	err = tmpl.ExecuteTemplate(w, "metrics", metrics)

@@ -21,7 +21,7 @@ type responseRecorder struct {
 // WriteHeader переопределение функции http.ResponseWriter.WriteHeader(int).
 // Сохраняет статус код ответа, затем передает управление функции http.ResponseWriter.WriteHeader(int).
 func (r *responseRecorder) WriteHeader(code int) {
-	// r.ResponseWriter.WriteHeader(code)
+	r.ResponseWriter.WriteHeader(code)
 	r.responseData.statusCode = code
 }
 
