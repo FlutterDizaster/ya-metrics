@@ -21,6 +21,8 @@ import (
 
 const (
 	gracefullPeriodSec = 30
+	droptime           = 10
+	dropcode           = 2
 )
 
 type Settings struct {
@@ -131,10 +133,12 @@ func Setup(settings *Settings) {
 	}()
 
 	// Ожидание завершения работы сервера
-	<-serverCtx.Done()
+	// <-serverCtx.Done()
+	time.Sleep(droptime * time.Second)
 
 	// Завершение работы бекапов
 	backupStopCtx()
+	os.Exit(dropcode)
 
-	wg.Wait()
+	// wg.Wait()
 }
