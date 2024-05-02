@@ -136,8 +136,8 @@ func Setup(settings *Settings) {
 	}()
 
 	// Ожидание завершения работы сервера
-	// <-serverCtx.Done()
-	time.Sleep(droptime * time.Second)
+	<-serverCtx.Done()
+	// time.Sleep(droptime * time.Second)
 
 	// Завершение работы бекапов
 	backupStopCtx()
