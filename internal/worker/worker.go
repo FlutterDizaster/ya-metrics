@@ -11,6 +11,10 @@ import (
 // TODO: Сделать механизм поочередного завершения сбора и отправки метрик,
 // чтобы метрики не собирались после последний отправки.
 
+const (
+	gracefullPeriodSec = 10
+)
+
 var (
 	errNilPointer = errors.New("nil pointer error")
 )
@@ -20,7 +24,7 @@ type Collector interface {
 }
 
 type Sender interface {
-	SendMetrics([]view.Metric)
+	SendMetrics(context.Context, []view.Metric)
 }
 
 type Settings struct {

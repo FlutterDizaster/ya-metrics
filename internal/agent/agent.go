@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	retryCount      = 15
-	retryIntervalMS = 200
+	retryCount       = 10
+	retryIntervalMS  = 1
+	retryMaxWaitTime = 2
 )
 
 func Setup(endpoint string, reportInterval int, pollInterval int) {
@@ -64,9 +65,10 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 	defer cancel()
 
 	senderSettings := &sender.Settings{
-		Addr:          endpoint,
-		RetryCount:    retryCount,
-		RetryInterval: retryIntervalMS * time.Millisecond,
+		Addr:             endpoint,
+		RetryCount:       retryCount,
+		RetryInterval:    retryIntervalMS * time.Second,
+		RetryMaxWaitTime: retryMaxWaitTime * time.Second,
 	}
 
 	sender := sender.NewSender(senderSettings)

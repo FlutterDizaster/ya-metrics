@@ -16,6 +16,7 @@ func (w *Worker) startCollecting(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			slog.Debug("Stopping collector...")
 			w.collect()
 			ticker.Stop()
 			return

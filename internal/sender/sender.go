@@ -3,6 +3,7 @@ package sender
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -14,9 +15,10 @@ import (
 // TODO: Прокинуть контекст в resty для Graceful Shutdown
 
 type Settings struct {
-	Addr          string
-	RetryCount    int
-	RetryInterval time.Duration
+	Addr             string
+	RetryCount       int
+	RetryInterval    time.Duration
+	RetryMaxWaitTime time.Duration
 }
 
 type Sender struct {
@@ -34,19 +36,20 @@ func NewSender(settings *Settings) *Sender {
 	}
 	sender.client.SetRetryCount(settings.RetryCount)
 	sender.client.SetRetryWaitTime(settings.RetryInterval)
+	sender.client.SetRetryMaxWaitTime(settings.RetryMaxWaitTime)
 	return sender
 }
 
-func (s *Sender) SendMetrics(metrics []view.Metric) {
+func (s *Sender) SendMetrics(ctx context.Context, metrics []view.Metric) {
 	slog.Debug("Sending metrics")
 
 	for _, metric := range metrics {
-		s.sendMetric(metric)
+		s.sendMetric(ctx, metric)
 	}
 	slog.Debug("Metrics sended")
 }
 
-func (s *Sender) sendMetric(metric view.Metric) {
+func (s *Sender) sendMetric(ctx context.Context, metric view.Metric) {
 	// Marshal метрики
 	metricBytes, err := metric.MarshalJSON()
 	if err != nil {
@@ -56,7 +59,8 @@ func (s *Sender) sendMetric(metric view.Metric) {
 
 	// Создание запроса
 	req := s.client.R().
-		SetHeader("Content-Type", "application/json")
+		SetHeader("Content-Type", "application/json").
+		SetContext(ctx)
 
 	// Сжатие метрики
 	data, err := compressData(metricBytes)

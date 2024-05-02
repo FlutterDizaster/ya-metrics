@@ -11,22 +11,26 @@ import (
 func (w *Worker) startSending(ctx context.Context) {
 	slog.Debug("Start sending metrics")
 	ticker := time.NewTicker(time.Duration(w.reportInterval) * time.Second)
+	// Создание контекста сендера
+	senderCtx, senderStopCtx := context.WithCancel(context.Background())
 	// Первая отправка метрик
-	w.send()
+	w.send(senderCtx)
 	for {
 		select {
 		case <-ctx.Done():
-			w.send()
+			slog.Debug("Stopping sender...")
+			w.send(senderCtx)
+			time.AfterFunc(gracefullPeriodSec*time.Second, senderStopCtx)
 			ticker.Stop()
 			// Выходим из функции
 			return
 		case <-ticker.C:
-			w.send()
+			w.send(senderCtx)
 		}
 	}
 }
 
-func (w *Worker) send() {
+func (w *Worker) send(ctx context.Context) {
 	w.cond.L.Lock()
 	defer w.cond.L.Unlock()
 	// Ждем добавления метрик
@@ -36,7 +40,7 @@ func (w *Worker) send() {
 
 	w.wg.Add(1)
 	go func() {
-		w.sender.SendMetrics(w.pullBuffer())
+		w.sender.SendMetrics(ctx, w.pullBuffer())
 		w.wg.Done()
 	}()
 }
