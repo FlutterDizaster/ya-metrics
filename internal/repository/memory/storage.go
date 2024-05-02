@@ -79,23 +79,13 @@ func NewMetricStorage(settings *Settings) *MetricStorage {
 func (ms *MetricStorage) StartBackups(ctx context.Context) {
 	slog.Debug("Start backup service")
 	defer slog.Debug("Backup service successfully stopped")
-	var ticker *time.Ticker
+	ticker := &time.Ticker{
+		C: make(<-chan time.Time),
+	}
 	if ms.storeInterval != 0 {
 		ticker = time.NewTicker(time.Duration(ms.storeInterval) * time.Second)
 	}
 
-	// // Необходимо для избежания deadlock из-за cond.Wait()
-	// go func() {
-	// 	<-ctx.Done()
-	// 	ms.cond.L.Lock()
-	// 	defer ms.cond.L.Unlock()
-
-	// 	ticker.Stop()
-
-	// 	slog.Debug("stop call", "time", time.Now().Second())
-
-	// 	ms.cond.Broadcast()
-	// }()
 	for {
 		select {
 		case <-ctx.Done():
@@ -107,7 +97,15 @@ func (ms *MetricStorage) StartBackups(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if !ms.isAwaiting() {
+				ms.setAwaiting(true)
 				go ms.backup(false)
+			}
+		default:
+			if ms.storeInterval == 0 {
+				if !ms.isAwaiting() {
+					ms.setAwaiting(true)
+					go ms.backup(false)
+				}
 			}
 		}
 	}
@@ -129,12 +127,10 @@ func (ms *MetricStorage) backup(skipWait bool) {
 	ms.cond.L.Lock()
 	defer ms.cond.L.Unlock()
 
-	slog.Debug("Waiting metrics for backup")
+	// slog.Debug("Waiting metrics for backup")
 	if !skipWait {
-		ms.setAwaiting(true)
-		slog.Debug("Waiting new data")
+		// slog.Debug("Waiting new data")
 		ms.cond.Wait()
-		ms.setAwaiting(false)
 	}
 
 	slog.Debug("Creating backup", slog.String("destination", ms.fileStoragePath))
@@ -145,6 +141,7 @@ func (ms *MetricStorage) backup(skipWait bool) {
 	}
 
 	slog.Debug("Backup created")
+	ms.setAwaiting(false)
 }
 
 func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
