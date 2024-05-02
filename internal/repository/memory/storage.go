@@ -89,6 +89,7 @@ func (ms *MetricStorage) StartBackups(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			ticker.Stop()
 			if ms.isAwaiting() {
 				ms.cond.Broadcast()
 			} else {
