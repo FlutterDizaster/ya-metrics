@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -223,7 +224,7 @@ func (ms *MetricStorage) loadFromFile() error {
 	// Открытие файла для чтения
 	file, err := os.OpenFile(ms.fileStoragePath, os.O_RDONLY, 0666)
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
@@ -233,7 +234,7 @@ func (ms *MetricStorage) loadFromFile() error {
 	// Проход по всем строкам файла
 	for {
 		if !scanner.Scan() {
-			return scanner.Err()
+			return fmt.Errorf("scanning error: %w", scanner.Err())
 		}
 
 		// Чтение строки файла
@@ -243,7 +244,7 @@ func (ms *MetricStorage) loadFromFile() error {
 		metric := view.Metric{}
 		err = metric.UnmarshalJSON(data)
 		if err != nil {
-			return err
+			return fmt.Errorf("unmarshaling error: %w", err)
 		}
 
 		// Сохранение метрики в буфер
