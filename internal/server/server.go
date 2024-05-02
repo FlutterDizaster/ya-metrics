@@ -121,7 +121,7 @@ func Setup(settings *Settings) {
 		storage.StartBackups(backupCtx)
 		wg.Done()
 	}()
-	go storage.StartBackups(context.Background())
+	// go storage.StartBackups(context.Background())
 
 	// Запуск сервера
 	wg.Add(1)

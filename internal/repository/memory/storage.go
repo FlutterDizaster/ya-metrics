@@ -43,6 +43,7 @@ type MetricStorage struct {
 	writer          *bufio.Writer
 	metrics         map[string]view.Metric
 	cond            *sync.Cond
+	isBackupFlag    bool
 }
 
 func NewMetricStorage(settings *Settings) *MetricStorage {
@@ -51,6 +52,7 @@ func NewMetricStorage(settings *Settings) *MetricStorage {
 		fileStoragePath: settings.FileStoragePath,
 		metrics:         make(map[string]view.Metric),
 		cond:            sync.NewCond(&sync.Mutex{}),
+		isBackupFlag:    true,
 	}
 
 	if settings.Restore {
@@ -81,33 +83,38 @@ func (ms *MetricStorage) StartBackups(ctx context.Context) {
 	go func() {
 		<-ctx.Done()
 		ms.cond.L.Lock()
+		ms.isBackupFlag = false
 		ms.cond.Broadcast()
 		ms.cond.L.Unlock()
 	}()
 
-	if ms.storeInterval == 0 {
-		for {
-			select {
-			case <-ctx.Done():
-				ms.backup(true)
-				return
-			default:
-				ms.backup(false)
+	var ticker *time.Ticker
+	if ms.storeInterval != 0 {
+		ticker = time.NewTicker(time.Duration(ms.storeInterval) * time.Second)
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Debug("stop call", "time", time.Now().Second())
+			ms.backup(true)
+			ticker.Stop()
+			return
+		default:
+			if ms.storeInterval != 0 {
+				<-ticker.C
 			}
-		}
-	} else {
-		ticker := time.NewTicker(time.Duration(ms.storeInterval) * time.Second)
-		for {
-			select {
-			case <-ctx.Done():
-				ms.backup(true)
-				ticker.Stop()
-				return
-			case <-ticker.C:
+			if ms.isBackup() {
+				slog.Debug("Backup call", "time", time.Now().Second())
 				ms.backup(false)
 			}
 		}
 	}
+}
+
+func (ms *MetricStorage) isBackup() bool {
+	ms.cond.L.Lock()
+	defer ms.cond.L.Unlock()
+	return ms.isBackupFlag
 }
 
 func (ms *MetricStorage) backup(skipWait bool) {
