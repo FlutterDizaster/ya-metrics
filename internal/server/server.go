@@ -115,6 +115,10 @@ func Setup(settings *Settings) {
 		slog.Info("Server successfully stopped")
 	}()
 
+	// TODO: remove later
+	// deadlock avoid
+	go shutdown(c)
+
 	// Запуск создания бекапов
 	wg.Add(1)
 	go func() {
@@ -149,4 +153,20 @@ func Setup(settings *Settings) {
 	// os.Exit(dropcode)
 
 	wg.Wait()
+}
+
+func shutdown(c chan os.Signal) {
+	<-c
+	forceCTX, forceStopCtx := context.WithTimeout(
+		context.Background(),
+		gracefullPeriodSec*time.Second,
+	)
+
+	<-forceCTX.Done()
+	if forceCTX.Err() == context.DeadlineExceeded {
+		slog.Error("graceful shutdown timed out.. forcing exit.")
+		forceStopCtx()
+		os.Exit(1)
+	}
+	forceStopCtx()
 }
