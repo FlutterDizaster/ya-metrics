@@ -2,13 +2,10 @@ package memory
 
 import (
 	"bufio"
-	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
@@ -22,13 +19,6 @@ const (
 	kindGauge   = "gauge"
 	kindCounter = "counter"
 )
-
-// // type MSI interface {
-// 	AddMetric(view.Metric) error
-// 	GetMetric(kind string, name string) (view.Metric, error)
-// 	ReadAllMetrics() []view.Metric
-// 	PullAllMetrics() []view.Metric
-// }
 
 type Settings struct {
 	StoreInterval   int
@@ -76,75 +66,6 @@ func NewMetricStorage(settings *Settings) *MetricStorage {
 	return ms
 }
 
-func (ms *MetricStorage) StartBackups(ctx context.Context) {
-	slog.Debug("Start backup service")
-	defer slog.Debug("Backup service successfully stopped")
-	ticker := &time.Ticker{
-		C: make(<-chan time.Time),
-	}
-	if ms.storeInterval != 0 {
-		ticker = time.NewTicker(time.Duration(ms.storeInterval) * time.Second)
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			if ms.isAwaiting() {
-				ms.cond.Broadcast()
-			} else {
-				ms.backup(true)
-			}
-			return
-		case <-ticker.C:
-			if !ms.isAwaiting() {
-				ms.setAwaiting(true)
-				go ms.backup(false)
-			}
-		default:
-			if ms.storeInterval == 0 {
-				if !ms.isAwaiting() {
-					ms.setAwaiting(true)
-					go ms.backup(false)
-				}
-			}
-		}
-	}
-}
-
-func (ms *MetricStorage) isAwaiting() bool {
-	ms.awmtx.Lock()
-	defer ms.awmtx.Unlock()
-	return ms.awaiting
-}
-
-func (ms *MetricStorage) setAwaiting(is bool) {
-	ms.awmtx.Lock()
-	ms.awaiting = is
-	ms.awmtx.Unlock()
-}
-
-func (ms *MetricStorage) backup(skipWait bool) {
-	ms.cond.L.Lock()
-	defer ms.cond.L.Unlock()
-
-	// slog.Debug("Waiting metrics for backup")
-	if !skipWait {
-		// slog.Debug("Waiting new data")
-		ms.cond.Wait()
-	}
-
-	slog.Debug("Creating backup", slog.String("destination", ms.fileStoragePath))
-
-	err := ms.saveToFile()
-	if err != nil {
-		slog.Error("backup error", "error", err)
-	}
-
-	slog.Debug("Backup created")
-	ms.setAwaiting(false)
-}
-
 func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
 	ms.cond.L.Lock()
 	defer func() {
@@ -183,17 +104,6 @@ func (ms *MetricStorage) ReadAllMetrics() []view.Metric {
 	defer ms.cond.L.Unlock()
 
 	return ms.getAllMetrics()
-}
-
-func (ms *MetricStorage) PullAllMetrics() []view.Metric {
-	ms.cond.L.Lock()
-	defer ms.cond.L.Unlock()
-
-	metrics := ms.getAllMetrics()
-
-	ms.metrics = make(map[string]view.Metric)
-
-	return metrics
 }
 
 func (ms *MetricStorage) addCounter(metric view.Metric) (view.Metric, error) {
@@ -241,72 +151,4 @@ func (ms *MetricStorage) getAllMetrics() []view.Metric {
 	}
 
 	return metrics
-}
-
-func (ms *MetricStorage) loadFromFile() error {
-	slog.Debug("Loading backup", slog.String("source", ms.fileStoragePath))
-	// Открытие файла для чтения
-	file, err := os.OpenFile(ms.fileStoragePath, os.O_RDONLY, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Создание сканера
-	scanner := bufio.NewScanner(file)
-
-	// Проход по всем строкам файла
-	for {
-		if !scanner.Scan() {
-			return scanner.Err()
-		}
-
-		// Чтение строки файла
-		data := scanner.Bytes()
-
-		// Анмаршалинг строки
-		metric := view.Metric{}
-		err = metric.UnmarshalJSON(data)
-		if err != nil {
-			return err
-		}
-
-		// Сохранение метрики в буфер
-		ms.metrics[metric.ID] = metric
-	}
-}
-
-func (ms *MetricStorage) saveToFile() error {
-	// Очистка файла
-	err := ms.file.Truncate(0)
-	if err != nil {
-		return err
-	}
-	_, err = ms.file.Seek(0, io.SeekStart)
-	if err != nil {
-		return err
-	}
-	// Проход по всем метрикам
-	for _, metric := range ms.metrics {
-		// Маршалинг метрики в JSON
-		var bmetric []byte
-		bmetric, err = metric.MarshalJSON()
-		if err != nil {
-			slog.Error("marshaling error", "error", err)
-			return err
-		}
-		// Запись метрики в файл
-		_, err = ms.writer.Write(bmetric)
-		if err != nil {
-			slog.Error("writing to file error", "error", err)
-			return err
-		}
-		// Добавление переноса строки
-		err = ms.writer.WriteByte('\n')
-		if err != nil {
-			slog.Error("writing to file error", "error", err)
-			return err
-		}
-	}
-	return ms.writer.Flush()
 }
