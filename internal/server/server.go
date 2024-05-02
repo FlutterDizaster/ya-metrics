@@ -73,7 +73,11 @@ func Setup(settings *Settings) {
 
 	// Прослушивание сигналов системы для старта Gracefull Shutdown
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(
+		c,
+		os.Interrupt,
+		syscall.SIGINT, /*, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT*/
+	)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

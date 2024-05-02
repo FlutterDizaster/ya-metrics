@@ -57,10 +57,10 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),
 		os.Interrupt,
-		syscall.SIGHUP,
 		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
+		// syscall.SIGHUP,
+		// syscall.SIGTERM,
+		// syscall.SIGQUIT,
 	)
 	defer cancel()
 
