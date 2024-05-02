@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
@@ -107,8 +107,8 @@ func (ms *MetricStorage) backup(skipWait bool) {
 
 	// slog.Debug("Waiting metrics for backup")
 	if !skipWait {
-		slog.Debug("Skip waiting cond")
-		// ms.cond.Wait()
+		slog.Debug("Waiting new data")
+		ms.cond.Wait()
 	}
 
 	slog.Debug("Creating backup", slog.String("destination", ms.fileStoragePath))
@@ -224,7 +224,7 @@ func (ms *MetricStorage) loadFromFile() error {
 	// Открытие файла для чтения
 	file, err := os.OpenFile(ms.fileStoragePath, os.O_RDONLY, 0666)
 	if err != nil {
-		return fmt.Errorf("error opening file: %w", err)
+		return err
 	}
 	defer file.Close()
 
@@ -234,7 +234,7 @@ func (ms *MetricStorage) loadFromFile() error {
 	// Проход по всем строкам файла
 	for {
 		if !scanner.Scan() {
-			return fmt.Errorf("scanning error: %w", scanner.Err())
+			return scanner.Err()
 		}
 
 		// Чтение строки файла
@@ -244,7 +244,7 @@ func (ms *MetricStorage) loadFromFile() error {
 		metric := view.Metric{}
 		err = metric.UnmarshalJSON(data)
 		if err != nil {
-			return fmt.Errorf("unmarshaling error: %w", err)
+			return err
 		}
 
 		// Сохранение метрики в буфер
@@ -258,6 +258,10 @@ func (ms *MetricStorage) saveToFile() error {
 	if err != nil {
 		return err
 	}
+	_, err = ms.file.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
 	// Проход по всем метрикам
 	for _, metric := range ms.metrics {
 		// Маршалинг метрики в JSON
@@ -267,7 +271,6 @@ func (ms *MetricStorage) saveToFile() error {
 			slog.Error("marshaling error", "error", err)
 			return err
 		}
-		slog.Debug("Writing new entry to backup", slog.String("content", string(bmetric)))
 		// Запись метрики в файл
 		_, err = ms.writer.Write(bmetric)
 		if err != nil {
