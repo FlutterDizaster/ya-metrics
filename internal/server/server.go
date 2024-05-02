@@ -78,7 +78,10 @@ func Setup(settings *Settings) {
 	signal.Notify(
 		c,
 		os.Interrupt,
-		syscall.SIGINT, /*, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT*/
+		syscall.SIGINT,
+		syscall.SIGHUP,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
 	)
 	wg.Add(1)
 	go func() {
@@ -138,7 +141,7 @@ func Setup(settings *Settings) {
 
 	// Завершение работы бекапов
 	backupStopCtx()
-	os.Exit(dropcode)
+	// os.Exit(dropcode)
 
-	// wg.Wait()
+	wg.Wait()
 }
