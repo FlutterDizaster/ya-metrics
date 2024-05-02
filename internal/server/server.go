@@ -141,7 +141,7 @@ func Setup(settings *Settings) {
 
 	// Завершение работы бекапов
 	backupStopCtx()
-	os.Exit(dropcode)
+	// os.Exit(dropcode)
 
-	// wg.Wait()
+	wg.Wait()
 }
