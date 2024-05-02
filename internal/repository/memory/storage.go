@@ -1,169 +1,282 @@
-package memstorage
+package memory
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"log/slog"
-	"strconv"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
 
-const (
-	metricKindGauge   = "gauge"
-	metricKindCounter = "counter"
-)
-
 var (
-	errWrongType  = errors.New("missmatch metric types")
-	errNotFound   = errors.New("metric not found")
-	errParseError = errors.New("unexpected parsing error")
+	errNotFound  = errors.New("metric not found")
+	errWrongType = errors.New("wrong metric type")
 )
 
-type Metric interface {
-	UpdateValue(newValue string) error
-	Kind() string
-	GetValue() string
-	RawValue() interface{}
+const (
+	kindGauge   = "gauge"
+	kindCounter = "counter"
+)
+
+// // type MSI interface {
+// 	AddMetric(view.Metric) error
+// 	GetMetric(kind string, name string) (view.Metric, error)
+// 	ReadAllMetrics() []view.Metric
+// 	PullAllMetrics() []view.Metric
+// }
+
+type Settings struct {
+	StoreInterval   int
+	FileStoragePath string
+	Restore         bool
 }
 
-// TODO: Переписать Metric Storage, чтобы он использовал view.Metric, дабы избежать маппинга.
 type MetricStorage struct {
-	metrics map[string]Metric
-	mtx     sync.Mutex
+	storeInterval   int
+	fileStoragePath string
+	file            *os.File
+	writer          *bufio.Writer
+	metrics         map[string]view.Metric
+	cond            *sync.Cond
 }
 
-func NewMetricStorage() MetricStorage {
-	return MetricStorage{
-		metrics: make(map[string]Metric),
+func NewMetricStorage(settings *Settings) *MetricStorage {
+	ms := &MetricStorage{
+		storeInterval:   settings.StoreInterval,
+		fileStoragePath: settings.FileStoragePath,
+		metrics:         make(map[string]view.Metric),
+		cond:            sync.NewCond(&sync.Mutex{}),
 	}
-}
 
-func (ms *MetricStorage) AddMetricValue(kind string, name string, value string) error {
-	ms.mtx.Lock()
-	defer ms.mtx.Unlock()
-
-	metric, ok := ms.metrics[name]
-
-	if !ok {
-		switch kind {
-		case metricKindGauge:
-			metric = &metricGauge{}
-		case metricKindCounter:
-			metric = &metricCounter{}
+	if settings.Restore {
+		err := ms.loadFromFile()
+		if err != nil {
+			slog.Error("error reading backup file", "error", err)
+			slog.Info("Skipping loading backup...")
 		}
 	}
 
-	if metric.Kind() != kind {
-		return errWrongType
-	}
-
-	err := metric.UpdateValue(value)
+	file, err := os.OpenFile(ms.fileStoragePath, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
-		return err
+		slog.Error("error opening file", "error", err)
+		os.Exit(1)
 	}
 
-	ms.metrics[name] = metric
+	ms.file = file
+	ms.writer = bufio.NewWriter(file)
 
-	return nil
+	return ms
+}
+
+func (ms *MetricStorage) StartBackups(ctx context.Context) {
+	slog.Debug("Start backup service")
+	defer slog.Debug("Backup service successfully stopped")
+	if ms.storeInterval == 0 {
+		for {
+			select {
+			case <-ctx.Done():
+				ms.backup(true)
+				return
+			default:
+				ms.backup(false)
+			}
+		}
+	} else {
+		ticker := time.NewTicker(time.Duration(ms.storeInterval) * time.Second)
+		for {
+			select {
+			case <-ctx.Done():
+				ms.backup(true)
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				ms.backup(false)
+			}
+		}
+	}
+}
+
+func (ms *MetricStorage) backup(skipWait bool) {
+	ms.cond.L.Lock()
+	defer ms.cond.L.Unlock()
+
+	// slog.Debug("Waiting metrics for backup")
+	if !skipWait {
+		ms.cond.Wait()
+	}
+
+	slog.Debug("Creating backup", slog.String("destination", ms.fileStoragePath))
+
+	err := ms.saveToFile()
+	if err != nil {
+		slog.Error("backup error", "error", err)
+	}
+
+	slog.Debug("Backup created")
+}
+
+func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
+	ms.cond.L.Lock()
+	defer func() {
+		ms.cond.Broadcast()
+		ms.cond.L.Unlock()
+	}()
+
+	switch metric.MType {
+	case kindGauge:
+		return ms.addGauge(metric)
+	case kindCounter:
+		return ms.addCounter(metric)
+	default:
+		return metric, errWrongType
+	}
+}
+
+func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error) {
+	ms.cond.L.Lock()
+	defer ms.cond.L.Unlock()
+
+	metric, ok := ms.metrics[name]
+	if !ok {
+		return view.Metric{}, errNotFound
+	}
+
+	if metric.MType != kind {
+		return view.Metric{}, errWrongType
+	}
+
+	return metric, nil
 }
 
 func (ms *MetricStorage) ReadAllMetrics() []view.Metric {
-	ms.mtx.Lock()
-	defer ms.mtx.Unlock()
+	ms.cond.L.Lock()
+	defer ms.cond.L.Unlock()
 
 	return ms.getAllMetrics()
 }
 
 func (ms *MetricStorage) PullAllMetrics() []view.Metric {
-	ms.mtx.Lock()
-	defer ms.mtx.Unlock()
+	ms.cond.L.Lock()
+	defer ms.cond.L.Unlock()
 
 	metrics := ms.getAllMetrics()
-	ms.metrics = make(map[string]Metric)
+
+	ms.metrics = make(map[string]view.Metric)
+
 	return metrics
+}
+
+func (ms *MetricStorage) addCounter(metric view.Metric) (view.Metric, error) {
+	oldMetric, ok := ms.metrics[metric.ID]
+	if !ok {
+		ms.metrics[metric.ID] = metric
+		return metric, nil
+	}
+
+	if oldMetric.MType != metric.MType {
+		return metric, errWrongType
+	}
+
+	delta := *oldMetric.Delta + *metric.Delta
+	metric.Delta = &delta
+
+	ms.metrics[metric.ID] = metric
+
+	return metric, nil
+}
+
+func (ms *MetricStorage) addGauge(metric view.Metric) (view.Metric, error) {
+	oldMetric, ok := ms.metrics[metric.ID]
+	if !ok {
+		ms.metrics[metric.ID] = metric
+		return metric, nil
+	}
+
+	if oldMetric.MType != metric.MType {
+		return metric, errWrongType
+	}
+
+	ms.metrics[metric.ID] = metric
+
+	return metric, nil
 }
 
 func (ms *MetricStorage) getAllMetrics() []view.Metric {
-	metrics := make([]view.Metric, 0)
+	metrics := make([]view.Metric, len(ms.metrics))
+	iter := 0
 
-	for name, metric := range ms.metrics {
-		newMetric := view.Metric{ID: name, MType: metric.Kind()}
-
-		switch metric.Kind() {
-		case metricKindGauge:
-			fvalue, err := strconv.ParseFloat(metric.GetValue(), 64)
-			if err != nil {
-				slog.Error("error parsing metric %s value: %s", name, metric.GetValue())
-				continue
-			}
-			newMetric.Value = &fvalue
-		case metricKindCounter:
-			delta, err := strconv.ParseInt(metric.GetValue(), 10, 64)
-			if err != nil {
-				slog.Error("error parsing metric %s value: %s", name, metric.GetValue())
-				continue
-			}
-			newMetric.Delta = &delta
-		}
-
-		metrics = append(
-			metrics,
-			newMetric,
-		)
+	for _, metric := range ms.metrics {
+		metrics[iter] = metric
+		iter++
 	}
 
 	return metrics
 }
 
-func (ms *MetricStorage) GetMetric(kind string, name string) (*view.Metric, error) {
-	ms.mtx.Lock()
-	defer ms.mtx.Unlock()
-
-	smetric, ok := ms.metrics[name]
-	if !ok {
-		return &view.Metric{}, errNotFound
+func (ms *MetricStorage) loadFromFile() error {
+	slog.Debug("Loading backup", slog.String("source", ms.fileStoragePath))
+	// Открытие файла для чтения
+	file, err := os.OpenFile(ms.fileStoragePath, os.O_RDONLY, 0666)
+	if err != nil {
+		return err
 	}
+	defer file.Close()
 
-	if smetric.Kind() != kind {
-		return &view.Metric{}, errWrongType
-	}
+	// Создание сканера
+	scanner := bufio.NewScanner(file)
 
-	nmetric := &view.Metric{
-		ID:    name,
-		MType: kind,
-	}
-
-	switch kind {
-	case metricKindCounter:
-		delta, err := smetric.RawValue().(int64)
-		if !err {
-			return &view.Metric{}, errParseError
+	// Проход по всем строкам файла
+	for {
+		if !scanner.Scan() {
+			return scanner.Err()
 		}
-		nmetric.Delta = &delta
-	case metricKindGauge:
-		value, err := smetric.RawValue().(float64)
-		if !err {
-			return &view.Metric{}, errParseError
-		}
-		nmetric.Value = &value
-	}
 
-	return nmetric, nil
+		// Чтение строки файла
+		data := scanner.Bytes()
+
+		// Анмаршалинг строки
+		metric := view.Metric{}
+		err = metric.UnmarshalJSON(data)
+		if err != nil {
+			return err
+		}
+
+		// Сохранение метрики в буфер
+		ms.metrics[metric.ID] = metric
+	}
 }
 
-func (ms *MetricStorage) GetMetricValue(kind string, name string) (string, error) {
-	ms.mtx.Lock()
-	defer ms.mtx.Unlock()
-
-	value, ok := ms.metrics[name]
-	if !ok {
-		return "", errNotFound
+func (ms *MetricStorage) saveToFile() error {
+	// Очистка файла
+	err := ms.file.Truncate(0)
+	if err != nil {
+		return err
 	}
-
-	if kind != value.Kind() {
-		return "", errWrongType
+	// Проход по всем метрикам
+	for _, metric := range ms.metrics {
+		// Маршалинг метрики в JSON
+		var bmetric []byte
+		bmetric, err = metric.MarshalJSON()
+		if err != nil {
+			slog.Error("marshaling error", "error", err)
+			return err
+		}
+		// Запись метрики в файл
+		_, err = ms.writer.Write(bmetric)
+		if err != nil {
+			slog.Error("writing to file error", "error", err)
+			return err
+		}
+		// Добавление переноса строки
+		err = ms.writer.WriteByte('\n')
+		if err != nil {
+			slog.Error("writing to file error", "error", err)
+			return err
+		}
 	}
-
-	return value.GetValue(), nil
+	return ms.writer.Flush()
 }

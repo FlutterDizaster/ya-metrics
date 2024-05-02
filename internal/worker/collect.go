@@ -17,6 +17,7 @@ func (w *Worker) startCollecting(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			w.collect()
+			ticker.Stop()
 			return
 		case <-ticker.C:
 			w.collect()

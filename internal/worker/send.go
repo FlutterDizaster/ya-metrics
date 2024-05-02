@@ -17,6 +17,7 @@ func (w *Worker) startSending(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			w.send()
+			ticker.Stop()
 			// Выходим из функции
 			return
 		case <-ticker.C:

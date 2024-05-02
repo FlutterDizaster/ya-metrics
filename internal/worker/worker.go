@@ -8,6 +8,9 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
 
+// TODO: Сделать механизм поочередного завершения сбора и отправки метрик,
+// чтобы метрики не собирались после последний отправки.
+
 var (
 	errNilPointer = errors.New("nil pointer error")
 )

@@ -53,7 +53,14 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 		{ID: "TotalAlloc", MType: "gauge", Source: view.MemStats},
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
 	defer cancel()
 
 	senderSettings := &sender.Settings{

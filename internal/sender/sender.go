@@ -11,6 +11,8 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+// TODO: Прокинуть контекст в resty для Graceful Shutdown
+
 type Settings struct {
 	Addr          string
 	RetryCount    int
