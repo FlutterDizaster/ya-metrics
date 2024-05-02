@@ -43,7 +43,8 @@ type MetricStorage struct {
 	writer          *bufio.Writer
 	metrics         map[string]view.Metric
 	cond            *sync.Cond
-	isBackupFlag    bool
+	awmtx           sync.Mutex
+	awaiting        bool
 }
 
 func NewMetricStorage(settings *Settings) *MetricStorage {
@@ -52,7 +53,7 @@ func NewMetricStorage(settings *Settings) *MetricStorage {
 		fileStoragePath: settings.FileStoragePath,
 		metrics:         make(map[string]view.Metric),
 		cond:            sync.NewCond(&sync.Mutex{}),
-		isBackupFlag:    true,
+		awaiting:        false,
 	}
 
 	if settings.Restore {
@@ -78,53 +79,62 @@ func NewMetricStorage(settings *Settings) *MetricStorage {
 func (ms *MetricStorage) StartBackups(ctx context.Context) {
 	slog.Debug("Start backup service")
 	defer slog.Debug("Backup service successfully stopped")
-
-	// Необходимо для избежания deadlock из-за cond.Wait()
-	go func() {
-		<-ctx.Done()
-		ms.cond.L.Lock()
-		ms.isBackupFlag = false
-		ms.cond.Broadcast()
-		ms.cond.L.Unlock()
-	}()
-
 	var ticker *time.Ticker
 	if ms.storeInterval != 0 {
 		ticker = time.NewTicker(time.Duration(ms.storeInterval) * time.Second)
 	}
+
+	// // Необходимо для избежания deadlock из-за cond.Wait()
+	// go func() {
+	// 	<-ctx.Done()
+	// 	ms.cond.L.Lock()
+	// 	defer ms.cond.L.Unlock()
+
+	// 	ticker.Stop()
+
+	// 	slog.Debug("stop call", "time", time.Now().Second())
+
+	// 	ms.cond.Broadcast()
+	// }()
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Debug("stop call", "time", time.Now().Second())
-			ms.backup(true)
-			ticker.Stop()
-			return
-		default:
-			if ms.storeInterval != 0 {
-				<-ticker.C
+			if ms.isAwaiting() {
+				ms.cond.Broadcast()
+			} else {
+				ms.backup(true)
 			}
-			if ms.isBackup() {
-				slog.Debug("Backup call", "time", time.Now().Second())
-				ms.backup(false)
+			return
+		case <-ticker.C:
+			if !ms.isAwaiting() {
+				go ms.backup(false)
 			}
 		}
 	}
 }
 
-func (ms *MetricStorage) isBackup() bool {
-	// ms.cond.L.Lock()
-	// defer ms.cond.L.Unlock()
-	return ms.isBackupFlag
+func (ms *MetricStorage) isAwaiting() bool {
+	ms.awmtx.Lock()
+	defer ms.awmtx.Unlock()
+	return ms.awaiting
+}
+
+func (ms *MetricStorage) setAwaiting(is bool) {
+	ms.awmtx.Lock()
+	ms.awaiting = is
+	ms.awmtx.Unlock()
 }
 
 func (ms *MetricStorage) backup(skipWait bool) {
 	ms.cond.L.Lock()
 	defer ms.cond.L.Unlock()
 
-	// slog.Debug("Waiting metrics for backup")
+	slog.Debug("Waiting metrics for backup")
 	if !skipWait {
+		ms.setAwaiting(true)
 		slog.Debug("Waiting new data")
 		ms.cond.Wait()
+		ms.setAwaiting(false)
 	}
 
 	slog.Debug("Creating backup", slog.String("destination", ms.fileStoragePath))

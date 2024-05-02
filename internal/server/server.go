@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -69,23 +68,24 @@ func Setup(settings *Settings) {
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	// Создание WaitGroup
-	var wg sync.WaitGroup
+	wg := CustomWG{}
 
 	// Прослушивание сигналов системы для старта Gracefull Shutdown
-	c := make(chan os.Signal, 1)
-	signal.Notify(
-		c,
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
 		os.Interrupt,
 		syscall.SIGINT,
 		syscall.SIGHUP,
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	)
-	wg.Add(1)
+	defer cancel()
+
+	wg.Add(1, "server graceefull keeper")
 	go func() {
-		defer wg.Done()
+		defer wg.Done("server graceefull keeper goroutine")
 		// Ожидание сигнала Gracefull Shutdown
-		<-c
+		<-ctx.Done()
 		slog.Info("Stopping server...")
 
 		// Сигнал завершения работы с таймером
@@ -95,14 +95,12 @@ func Setup(settings *Settings) {
 		)
 		defer shutdownStopCtx()
 
-		wg.Add(1)
 		go func() {
 			<-shutdownCtx.Done()
 			if shutdownCtx.Err() == context.DeadlineExceeded {
 				slog.Error("graceful shutdown timed out.. forcing exit.")
 				os.Exit(1)
 			}
-			wg.Done()
 		}()
 
 		// Запуск Gracefull Shutdown
@@ -117,32 +115,27 @@ func Setup(settings *Settings) {
 
 	// TODO: remove later
 	// deadlock avoid
-	go shutdown(c)
+	go shutdown(ctx)
 
 	// Запуск создания бекапов
-	wg.Add(1)
+	wg.Add(1, "backups goroutine")
 	go func() {
+		defer wg.Done("backups goroutine")
 		storage.StartBackups(backupCtx)
-		wg.Done()
 	}()
 	// go storage.StartBackups(context.Background())
 
 	// Запуск сервера
-	wg.Add(1)
+	wg.Add(1, "server listener goroutine")
 	go func() {
+		defer wg.Done("server listener goroutine")
 		slog.Info("Listening...")
 		err := server.ListenAndServe()
 		if !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("server error: %s", err)
 			panic(err)
 		}
-		wg.Done()
 	}()
-	// slog.Info("Listening...")
-	// err := server.ListenAndServe()
-	// if !errors.Is(err, http.ErrServerClosed) {
-	// 	slog.Error("server error: %s", err)
-	// }
 
 	// Ожидание завершения работы сервера
 	<-serverCtx.Done()
@@ -155,8 +148,8 @@ func Setup(settings *Settings) {
 	wg.Wait()
 }
 
-func shutdown(c chan os.Signal) {
-	<-c
+func shutdown(ctx context.Context) {
+	<-ctx.Done()
 	forceCTX, forceStopCtx := context.WithTimeout(
 		context.Background(),
 		gracefullPeriodSec*time.Second,

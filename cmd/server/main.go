@@ -1,12 +1,12 @@
 package main
 
 import (
-	"flag"
 	"log/slog"
 	"os"
 	"strconv"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
+	flag "github.com/spf13/pflag"
 )
 
 func main() {
@@ -18,12 +18,18 @@ func main() {
 		"/tmp/metrics-db.json",
 		"Backup file path. Default /tmp/metrics-db.json",
 	)
-	restore := flag.Bool(
+	restoref := flag.String(
 		"r",
-		true,
+		"true",
 		"the flag indicates whether a backup should be loaded from a file",
 	)
 	flag.Parse()
+
+	restore, err := strconv.ParseBool(*restoref)
+	if err != nil {
+		slog.Error("r should be integer", "error", err)
+		os.Exit(1)
+	}
 
 	// Парсинг переменных окружения
 	envEndpoint, ok := os.LookupEnv("ADDRESS")
@@ -32,7 +38,8 @@ func main() {
 	}
 	envStoreInterval, ok := os.LookupEnv("STORE_INTERVAL")
 	if ok {
-		pStoreInterval, err := strconv.Atoi(envStoreInterval)
+		var pStoreInterval int
+		pStoreInterval, err = strconv.Atoi(envStoreInterval)
 		if err != nil {
 			slog.Error("STORE_INTERVAL should be integer", "error", err)
 			os.Exit(1)
@@ -45,7 +52,8 @@ func main() {
 	}
 	envRestore, ok := os.LookupEnv("RESTORE")
 	if ok {
-		pRestore, err := strconv.ParseBool(envRestore)
+		var pRestore bool
+		pRestore, err = strconv.ParseBool(envRestore)
 		if err != nil {
 			slog.Error(
 				"RESTORE should be 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False.",
@@ -54,7 +62,7 @@ func main() {
 			)
 			os.Exit(1)
 		}
-		restore = &pRestore
+		restore = pRestore
 	}
 
 	// Создание структуры с настройками сервера
@@ -62,7 +70,7 @@ func main() {
 		URL:             *endpoint,
 		StoreInterval:   *storeInterval,
 		FileStoragePath: *fileStoragePath,
-		Restore:         *restore,
+		Restore:         restore,
 	}
 
 	server.Setup(settings)
