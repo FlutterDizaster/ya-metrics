@@ -112,8 +112,8 @@ func (ms *MetricStorage) StartBackups(ctx context.Context) {
 }
 
 func (ms *MetricStorage) isBackup() bool {
-	ms.cond.L.Lock()
-	defer ms.cond.L.Unlock()
+	// ms.cond.L.Lock()
+	// defer ms.cond.L.Unlock()
 	return ms.isBackupFlag
 }
 
