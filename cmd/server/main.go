@@ -1,12 +1,12 @@
 package main
 
 import (
+	"flag"
 	"log/slog"
 	"os"
 	"strconv"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
-	flag "github.com/spf13/pflag"
 )
 
 func main() {
