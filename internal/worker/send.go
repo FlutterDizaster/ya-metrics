@@ -12,7 +12,8 @@ func (w *Worker) startSending(ctx context.Context) {
 	slog.Debug("Start sending metrics")
 	ticker := time.NewTicker(time.Duration(w.reportInterval) * time.Second)
 	// Создание контекста сендера
-	senderCtx, senderStopCtx := context.WithCancel(context.Background())
+	// TODO: Переделать контекст сендера, а то как-то плохо оно работает
+	senderCtx, senderStopCtx := context.WithCancel(context.TODO())
 	// Первая отправка метрик
 	w.send(senderCtx)
 	for {
