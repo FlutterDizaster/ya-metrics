@@ -130,6 +130,7 @@ func Setup(settings *Settings) {
 		err := server.ListenAndServe()
 		if !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("server error: %s", err)
+			panic(err)
 		}
 		wg.Done()
 	}()
