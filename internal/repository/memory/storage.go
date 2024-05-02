@@ -76,6 +76,15 @@ func NewMetricStorage(settings *Settings) *MetricStorage {
 func (ms *MetricStorage) StartBackups(ctx context.Context) {
 	slog.Debug("Start backup service")
 	defer slog.Debug("Backup service successfully stopped")
+
+	// Необходимо для избежания deadlock из-за cond.Wait()
+	go func() {
+		<-ctx.Done()
+		ms.cond.L.Lock()
+		ms.cond.Broadcast()
+		ms.cond.L.Unlock()
+	}()
+
 	if ms.storeInterval == 0 {
 		for {
 			select {

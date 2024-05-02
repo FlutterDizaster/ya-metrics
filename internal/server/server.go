@@ -6,6 +6,11 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/repository/memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/router"
@@ -14,9 +19,9 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 )
 
-// const (
-// 	gracefullPeriodSec = 30
-// )
+const (
+	gracefullPeriodSec = 30
+)
 
 type Settings struct {
 	URL             string
@@ -58,89 +63,89 @@ func Setup(settings *Settings) {
 	server := http.Server{Addr: settings.URL, Handler: router.NewRouter(routerSettings)}
 
 	// Контекст бекапов
-	// backupCtx, backupStopCtx := context.WithCancel(context.Background())
+	backupCtx, backupStopCtx := context.WithCancel(context.Background())
 
-	// // Контекст работы сервера
-	// serverCtx, serverStopCtx := context.WithCancel(context.Background())
+	// Контекст работы сервера
+	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	// Создание WaitGroup
-	// var wg sync.WaitGroup
+	var wg sync.WaitGroup
 
 	// Прослушивание сигналов системы для старта Gracefull Shutdown
-	// c := make(chan os.Signal, 1)
-	// signal.Notify(
-	// 	c,
-	// 	os.Interrupt,
-	// 	syscall.SIGINT,
-	// 	syscall.SIGHUP,
-	// 	syscall.SIGTERM,
-	// 	syscall.SIGQUIT,
-	// )
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	// 	// Ожидание сигнала Gracefull Shutdown
-	// 	<-c
-	// 	slog.Info("Stopping server...")
+	c := make(chan os.Signal, 1)
+	signal.Notify(
+		c,
+		os.Interrupt,
+		syscall.SIGINT,
+		syscall.SIGHUP,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Ожидание сигнала Gracefull Shutdown
+		<-c
+		slog.Info("Stopping server...")
 
-	// 	// Сигнал завершения работы с таймером
-	// 	shutdownCtx, shutdownStopCtx := context.WithTimeout(
-	// 		serverCtx,
-	// 		gracefullPeriodSec*time.Second,
-	// 	)
-	// 	defer shutdownStopCtx()
+		// Сигнал завершения работы с таймером
+		shutdownCtx, shutdownStopCtx := context.WithTimeout(
+			serverCtx,
+			gracefullPeriodSec*time.Second,
+		)
+		defer shutdownStopCtx()
 
-	// 	wg.Add(1)
-	// 	go func() {
-	// 		<-shutdownCtx.Done()
-	// 		if shutdownCtx.Err() == context.DeadlineExceeded {
-	// 			slog.Error("graceful shutdown timed out.. forcing exit.")
-	// 			os.Exit(1)
-	// 		}
-	// 		wg.Done()
-	// 	}()
+		wg.Add(1)
+		go func() {
+			<-shutdownCtx.Done()
+			if shutdownCtx.Err() == context.DeadlineExceeded {
+				slog.Error("graceful shutdown timed out.. forcing exit.")
+				os.Exit(1)
+			}
+			wg.Done()
+		}()
 
-	// 	// Запуск Gracefull Shutdown
-	// 	err := server.Shutdown(shutdownCtx)
-	// 	if err != nil {
-	// 		slog.Error("server shutdown error", "error", err)
-	// 		os.Exit(1)
-	// 	}
-	// 	serverStopCtx()
-	// 	slog.Info("Server successfully stopped")
-	// }()
+		// Запуск Gracefull Shutdown
+		err := server.Shutdown(shutdownCtx)
+		if err != nil {
+			slog.Error("server shutdown error", "error", err)
+			os.Exit(1)
+		}
+		serverStopCtx()
+		slog.Info("Server successfully stopped")
+	}()
 
 	// Запуск создания бекапов
-	// wg.Add(1)
-	// go func() {
-	// 	storage.StartBackups(backupCtx)
-	// 	wg.Done()
-	// }()
+	wg.Add(1)
+	go func() {
+		storage.StartBackups(backupCtx)
+		wg.Done()
+	}()
 	go storage.StartBackups(context.Background())
 
 	// Запуск сервера
-	// wg.Add(1)
-	// go func() {
-	// 	slog.Info("Listening...")
-	// 	err := server.ListenAndServe()
-	// 	if !errors.Is(err, http.ErrServerClosed) {
-	// 		slog.Error("server error: %s", err)
-	// 	}
-	// 	wg.Done()
-	// }()
-	slog.Info("Listening...")
-	err := server.ListenAndServe()
-	if !errors.Is(err, http.ErrServerClosed) {
-		slog.Error("server error: %s", err)
-	}
+	wg.Add(1)
+	go func() {
+		slog.Info("Listening...")
+		err := server.ListenAndServe()
+		if !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("server error: %s", err)
+		}
+		wg.Done()
+	}()
+	// slog.Info("Listening...")
+	// err := server.ListenAndServe()
+	// if !errors.Is(err, http.ErrServerClosed) {
+	// 	slog.Error("server error: %s", err)
+	// }
 
-	// // Ожидание завершения работы сервера
-	// <-serverCtx.Done()
-	// // time.Sleep(droptime * time.Second)
+	// Ожидание завершения работы сервера
+	<-serverCtx.Done()
+	// time.Sleep(droptime * time.Second)
 
-	// // Завершение работы бекапов
-	// backupStopCtx()
-	// // os.Exit(dropcode)
+	// Завершение работы бекапов
+	backupStopCtx()
+	// os.Exit(dropcode)
 
-	// wg.Wait()
+	wg.Wait()
 }
