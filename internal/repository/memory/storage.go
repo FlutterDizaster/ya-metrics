@@ -266,6 +266,7 @@ func (ms *MetricStorage) saveToFile() error {
 			slog.Error("marshaling error", "error", err)
 			return err
 		}
+		slog.Debug("Writing new entry to backup", slog.String("content", string(bmetric)))
 		// Запись метрики в файл
 		_, err = ms.writer.Write(bmetric)
 		if err != nil {
