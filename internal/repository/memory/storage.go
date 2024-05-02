@@ -106,7 +106,8 @@ func (ms *MetricStorage) backup(skipWait bool) {
 
 	// slog.Debug("Waiting metrics for backup")
 	if !skipWait {
-		ms.cond.Wait()
+		slog.Debug("Skip waiting cond")
+		// ms.cond.Wait()
 	}
 
 	slog.Debug("Creating backup", slog.String("destination", ms.fileStoragePath))
