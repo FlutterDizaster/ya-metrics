@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
@@ -26,6 +27,8 @@ type Settings struct {
 	Restore         bool
 }
 
+// Тип MetricStorage используется для хранения метрик в оперативной памяти во время исполнения
+// и бекапа метрик по заданным правилам.
 type MetricStorage struct {
 	storeInterval   int
 	fileStoragePath string
@@ -33,18 +36,19 @@ type MetricStorage struct {
 	writer          *bufio.Writer
 	metrics         map[string]view.Metric
 	cond            *sync.Cond
-	awmtx           sync.Mutex
-	awaiting        bool
+	awaiting        atomic.Bool // TODO: use atomic Bool
 }
 
+// Функция фабрика для создания нового экземпляра MetricStorage.
 func NewMetricStorage(settings *Settings) *MetricStorage {
 	ms := &MetricStorage{
 		storeInterval:   settings.StoreInterval,
 		fileStoragePath: settings.FileStoragePath,
 		metrics:         make(map[string]view.Metric),
 		cond:            sync.NewCond(&sync.Mutex{}),
-		awaiting:        false,
 	}
+
+	ms.awaiting.Store(false)
 
 	if settings.Restore {
 		err := ms.loadFromFile()
@@ -66,9 +70,13 @@ func NewMetricStorage(settings *Settings) *MetricStorage {
 	return ms
 }
 
+// Метод добавления метрики. Если метрика с metric.ID уже добавлена, то обновляется её значение.
+// Возвращает метрику с обновленным значением.
 func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
+	// Блокировка mutex в cond, чтобы избежать чтения данных при бекапе.
 	ms.cond.L.Lock()
 	defer func() {
+		// Оповещение фенкции бекапа о том, что можно продолжать выполнение программы.
 		ms.cond.Broadcast()
 		ms.cond.L.Unlock()
 	}()
@@ -83,6 +91,8 @@ func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
 	}
 }
 
+// Метод получения метрики из хранилища.
+// Возвращает ошибку в случае если метрика не найдена или у метрики с ID = name другой тип.
 func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error) {
 	ms.cond.L.Lock()
 	defer ms.cond.L.Unlock()
@@ -99,6 +109,7 @@ func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error
 	return metric, nil
 }
 
+// Возвращает слайс всех хранящихся метрик.
 func (ms *MetricStorage) ReadAllMetrics() []view.Metric {
 	ms.cond.L.Lock()
 	defer ms.cond.L.Unlock()
@@ -106,6 +117,7 @@ func (ms *MetricStorage) ReadAllMetrics() []view.Metric {
 	return ms.getAllMetrics()
 }
 
+// Хелпер фенкция для добавления метрики типа kindCounter.
 func (ms *MetricStorage) addCounter(metric view.Metric) (view.Metric, error) {
 	oldMetric, ok := ms.metrics[metric.ID]
 	if !ok {
@@ -125,6 +137,7 @@ func (ms *MetricStorage) addCounter(metric view.Metric) (view.Metric, error) {
 	return metric, nil
 }
 
+// Хелпер фенкция для добавления метрики типа kindGauge.
 func (ms *MetricStorage) addGauge(metric view.Metric) (view.Metric, error) {
 	oldMetric, ok := ms.metrics[metric.ID]
 	if !ok {

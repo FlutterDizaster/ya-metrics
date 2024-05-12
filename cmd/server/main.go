@@ -23,6 +23,8 @@ func main() {
 		"true",
 		"the flag indicates whether a backup should be loaded from a file",
 	)
+	pgConnectionString := flag.String("d", "", "Postgres connection string")
+
 	flag.Parse()
 
 	restore, err := strconv.ParseBool(*restoref)
@@ -64,13 +66,18 @@ func main() {
 		}
 		restore = pRestore
 	}
+	envPGConnectionString, ok := os.LookupEnv("DATABASE_DSN")
+	if ok {
+		pgConnectionString = &envPGConnectionString
+	}
 
 	// Создание структуры с настройками сервера
 	settings := &server.Settings{
-		URL:             *endpoint,
-		StoreInterval:   *storeInterval,
-		FileStoragePath: *fileStoragePath,
-		Restore:         restore,
+		URL:                *endpoint,
+		StoreInterval:      *storeInterval,
+		FileStoragePath:    *fileStoragePath,
+		Restore:            restore,
+		PGConnectionString: *pgConnectionString,
 	}
 
 	server.Setup(settings)

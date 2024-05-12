@@ -9,6 +9,7 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
 
+// Метод загружающий метрики в хранилище из файла.
 func (ms *MetricStorage) loadFromFile() error {
 	slog.Debug("Loading backup", slog.String("source", ms.fileStoragePath))
 	// Открытие файла для чтения
@@ -42,6 +43,7 @@ func (ms *MetricStorage) loadFromFile() error {
 	}
 }
 
+// Метод записывающий метрики в файл.
 func (ms *MetricStorage) saveToFile() error {
 	// Очистка файла
 	err := ms.file.Truncate(0)

@@ -23,10 +23,11 @@ const (
 )
 
 type Settings struct {
-	URL             string
-	StoreInterval   int
-	FileStoragePath string
-	Restore         bool
+	URL                string
+	StoreInterval      int
+	FileStoragePath    string
+	Restore            bool
+	PGConnectionString string
 }
 
 func Setup(settings *Settings) {
