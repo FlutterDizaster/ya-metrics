@@ -12,7 +12,6 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/postgres"
-	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 	"golang.org/x/sync/errgroup"
 )
@@ -43,9 +42,6 @@ type Server struct {
 }
 
 func New(settings Settings) (*Server, error) {
-	// initialize logger
-	logger.Init()
-
 	slog.Debug("Creating application instance")
 	defer slog.Debug("Application instance created")
 
@@ -66,9 +62,11 @@ func New(settings Settings) (*Server, error) {
 			Restore:         settings.Restore,
 		}
 		storage, err = memory.New(&storageSettings)
+		slog.Info("storage created", slog.String("mode", "In Memory"))
 	} else {
 		// Создание хранилища с подключением к базе
 		storage, err = postgres.New(settings.PGConnString)
+		slog.Info("storage created", slog.String("mode", "DB"))
 	}
 	if err != nil {
 		slog.Error("error creating storage. forcing exit.", slog.String("error", err.Error()))

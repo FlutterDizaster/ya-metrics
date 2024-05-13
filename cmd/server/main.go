@@ -11,6 +11,7 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
+	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
 const (
@@ -22,6 +23,9 @@ const (
 )
 
 func main() {
+	// initialize logger
+	logger.Init()
+
 	// Создание структуры с настройками сервера
 	settings := parseConfig()
 	// Создание сервера
