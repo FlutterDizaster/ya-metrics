@@ -11,16 +11,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// const (
-// 	gauge   = "gauge"
-// 	counter = "counter"
-// )
-
 // Интерфейс взаимодействия с репозиторием метрик.
 type MetricsStorage interface {
 	AddMetric(view.Metric) (view.Metric, error)
 	GetMetric(kind string, name string) (view.Metric, error)
 	ReadAllMetrics() []view.Metric
+	Ping() error
 }
 
 // Структура Settings хранит параметры необходимые для создания экземпляра Router.
@@ -40,7 +36,7 @@ type API struct {
 	server  *http.Server
 }
 
-// Фабрика создания роутера.
+// Фабрика создания API.
 // Необходима для правильной инициалищации экземпляра API.
 func New(as *Settings) *API {
 	slog.Debug("Creating API service")
@@ -58,6 +54,7 @@ func New(as *Settings) *API {
 
 	// настройка роутинга
 	r.Get("/", api.getAllHandler)
+	r.Get("/ping", api.pingHandler)
 	r.Route("/update", func(rr chi.Router) {
 		rr.Post("/", api.updateJSONHandler)
 		rr.Post("/{kind}/{name}/{value}", api.updateHandler)
@@ -83,6 +80,7 @@ func New(as *Settings) *API {
 	return api
 }
 
+// Функция запуска сервсиса.
 func (api *API) Start(ctx context.Context) error {
 	slog.Info("Starting API service")
 	defer slog.Info("API server succesfully stopped")

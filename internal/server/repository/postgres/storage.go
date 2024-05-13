@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	// PostgreSQL driver.
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // type DataProvider interface {
