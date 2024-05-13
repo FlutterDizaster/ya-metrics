@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -42,9 +41,12 @@ func New(settings Settings) *Server {
 	// initialize logger
 	logger.Init()
 
+	slog.Debug("Creating application instance")
+	defer slog.Debug("Application instance created")
+
 	// validate url
 	if err := utils.ValidateURL(settings.URL); err != nil {
-		log.Fatalf("url error: %s", err)
+		slog.Error("url error", slog.String("error", err.Error()))
 	}
 
 	//TODO: Реализовать создание pg сторейджа, если pgConnectionString != ""
@@ -82,6 +84,7 @@ func New(settings Settings) *Server {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	slog.Info("Starting application services")
 	// Если сервисов нет, то и запускать нечего
 	if s.services == nil {
 		return errors.New("no registered services")
@@ -108,6 +111,8 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Ждем завершения контекста
 	<-ctx.Done()
+	slog.Info("Stopping application services")
+	defer slog.Info("Application services succesfully stopped")
 
 	// Запускаем gracefull keeper
 	forceCtx, forceStopCtx := context.WithTimeout(

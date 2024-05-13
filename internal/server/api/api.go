@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
@@ -42,6 +43,7 @@ type API struct {
 // Фабрика создания роутера.
 // Необходима для правильной инициалищации экземпляра API.
 func New(as *Settings) *API {
+	slog.Debug("Creating API service")
 	// создание экземпляра API
 	api := &API{
 		storage: as.Storage,
@@ -77,14 +79,17 @@ func New(as *Settings) *API {
 		Addr:    as.Addr,
 		Handler: r,
 	}
-
+	slog.Debug("API service created")
 	return api
 }
 
 func (api *API) Start(ctx context.Context) error {
+	slog.Info("Starting API service")
+	defer slog.Info("API server succesfully stopped")
 	eg := errgroup.Group{}
 
 	eg.Go(func() error {
+		slog.Info("Listening...")
 		err := api.server.ListenAndServe()
 		if !errors.Is(err, http.ErrServerClosed) {
 			return err
@@ -94,6 +99,7 @@ func (api *API) Start(ctx context.Context) error {
 
 	<-ctx.Done()
 	eg.Go(func() error {
+		slog.Info("Shutingdown API service")
 		return api.server.Shutdown(context.TODO())
 	})
 
