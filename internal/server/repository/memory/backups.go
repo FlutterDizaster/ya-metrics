@@ -8,7 +8,7 @@ import (
 )
 
 // Метод запускающий сервис бекапа.
-func (ms *MetricStorage) StartBackups(ctx context.Context) {
+func (ms *MetricStorage) Start(ctx context.Context) {
 	slog.Debug("Start backup service")
 	defer slog.Debug("Backup service successfully stopped")
 	ticker := &time.Ticker{

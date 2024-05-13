@@ -1,4 +1,4 @@
-package router
+package api
 
 import (
 	"net/http"
@@ -36,7 +36,7 @@ type Router struct {
 }
 
 // Фабрика создания роутера.
-// Необзодима для правильной инициалищации экземпляра Router.
+// Необходима для правильной инициалищации экземпляра Router.
 func NewRouter(rs *Settings) *Router {
 	// создание экземпляра Router
 	r := &Router{

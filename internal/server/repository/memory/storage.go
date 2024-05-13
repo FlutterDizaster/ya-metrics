@@ -36,7 +36,7 @@ type MetricStorage struct {
 	writer          *bufio.Writer
 	metrics         map[string]view.Metric
 	cond            *sync.Cond
-	awaiting        atomic.Bool // TODO: use atomic Bool
+	awaiting        atomic.Bool
 }
 
 // Функция фабрика для создания нового экземпляра MetricStorage.

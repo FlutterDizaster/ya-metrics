@@ -8,10 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/sender"
-	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
+	"github.com/FlutterDizaster/ya-metrics/internal/agent/sender"
+	"github.com/FlutterDizaster/ya-metrics/internal/agent/telemetry"
+	"github.com/FlutterDizaster/ya-metrics/internal/agent/worker"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
-	"github.com/FlutterDizaster/ya-metrics/internal/worker"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
