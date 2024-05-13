@@ -11,6 +11,7 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/memory"
+	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/postgres"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 	"golang.org/x/sync/errgroup"
@@ -22,7 +23,11 @@ const (
 
 type Service interface {
 	Start(ctx context.Context) error
-	// Shutdown(ctx context.Context) error
+}
+
+type StorageService interface {
+	Service
+	api.MetricsStorage
 }
 
 type Settings struct {
@@ -49,17 +54,21 @@ func New(settings Settings) *Server {
 		slog.Error("url error", slog.String("error", err.Error()))
 	}
 
-	//TODO: Реализовать создание pg сторейджа, если pgConnectionString != ""
-
-	// creating new storage settings
-	storageSettings := memory.Settings{
-		StoreInterval:   settings.StoreInterval,
-		FileStoragePath: settings.FileStoragePath,
-		Restore:         settings.Restore,
+	// Создание экземпляра StorageService
+	var storage StorageService
+	// Если строка для поключения к бд не указана
+	if settings.PGConnectionString == "" {
+		// Создание локального хранилища метрик
+		storageSettings := memory.Settings{
+			StoreInterval:   settings.StoreInterval,
+			FileStoragePath: settings.FileStoragePath,
+			Restore:         settings.Restore,
+		}
+		storage = memory.New(&storageSettings)
+	} else {
+		// Создание хранилища с подключением к базе
+		storage = postgres.New(settings.PGConnectionString)
 	}
-
-	// create new metric storage
-	storage := memory.NewMetricStorage(&storageSettings)
 
 	// configure router settings
 	routerSettings := &api.Settings{
@@ -115,6 +124,7 @@ func (s *Server) Start(ctx context.Context) error {
 	defer slog.Info("Application services succesfully stopped")
 
 	// Запускаем gracefull keeper
+	// Завершает выполнение программы через gracefullPeriodSec секунд, если программа не завершится сама
 	forceCtx, forceStopCtx := context.WithTimeout(
 		context.Background(),
 		gracefullPeriodSec*time.Second,

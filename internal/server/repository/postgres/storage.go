@@ -22,8 +22,8 @@ func New(_ string) *MetricStorage {
 	return &MetricStorage{}
 }
 
-func (ms *MetricStorage) Start(_ context.Context) {
-
+func (ms *MetricStorage) Start(_ context.Context) error {
+	return nil
 }
 
 func (ms *MetricStorage) AddMetric(_ view.Metric) (view.Metric, error) {

@@ -40,7 +40,7 @@ type MetricStorage struct {
 }
 
 // Функция фабрика для создания нового экземпляра MetricStorage.
-func NewMetricStorage(settings *Settings) *MetricStorage {
+func New(settings *Settings) *MetricStorage {
 	ms := &MetricStorage{
 		storeInterval:   settings.StoreInterval,
 		fileStoragePath: settings.FileStoragePath,
