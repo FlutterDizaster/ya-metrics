@@ -80,6 +80,8 @@ func parseConfig() server.Settings {
 		"Time between backups in seconds. Default 300",
 	)
 
+	flag.Parse()
+
 	return lookupEnvs(settings)
 }
 
