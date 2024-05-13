@@ -40,7 +40,7 @@ type MetricStorage struct {
 }
 
 // Функция фабрика для создания нового экземпляра MetricStorage.
-func New(settings *Settings) *MetricStorage {
+func New(settings *Settings) (*MetricStorage, error) {
 	ms := &MetricStorage{
 		storeInterval:   settings.StoreInterval,
 		fileStoragePath: settings.FileStoragePath,
@@ -61,13 +61,13 @@ func New(settings *Settings) *MetricStorage {
 	file, err := os.OpenFile(ms.fileStoragePath, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		slog.Error("error opening file", "error", err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	ms.file = file
 	ms.writer = bufio.NewWriter(file)
 
-	return ms
+	return ms, nil
 }
 
 // Метод добавления метрики. Если метрика с metric.ID уже добавлена, то обновляется её значение.

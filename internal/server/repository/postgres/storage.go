@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	// PostgreSQL driver.
@@ -18,14 +20,34 @@ import (
 // var _ DataProvider = &MetricStorage{}
 
 type MetricStorage struct {
+	pgConnString string
+	db           *sql.DB
 }
 
-func New(_ string) *MetricStorage {
-	return &MetricStorage{}
+func New(conn string) (*MetricStorage, error) {
+	// Создание экземпляра DB
+	db, err := sql.Open("pgx", conn)
+	if err != nil {
+		return nil, err
+	}
+
+	// Проверка подключения
+	ctx, cancle := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancle()
+	if err = db.PingContext(ctx); err != nil {
+		return nil, err
+	}
+
+	return &MetricStorage{
+		pgConnString: conn,
+		db:           db,
+	}, nil
 }
 
-func (ms *MetricStorage) Start(_ context.Context) error {
-	return nil
+func (ms *MetricStorage) Start(ctx context.Context) error {
+	// Ожидание завершения контекста
+	<-ctx.Done()
+	return ms.db.Close()
 }
 
 func (ms *MetricStorage) AddMetric(_ view.Metric) (view.Metric, error) {

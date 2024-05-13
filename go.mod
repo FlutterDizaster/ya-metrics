@@ -27,6 +27,7 @@ require (
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/zerolog v1.32.0
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.7.0

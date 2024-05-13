@@ -31,18 +31,18 @@ type StorageService interface {
 }
 
 type Settings struct {
-	URL                string
-	StoreInterval      int
-	FileStoragePath    string
-	Restore            bool
-	PGConnectionString string
+	URL             string
+	StoreInterval   int
+	FileStoragePath string
+	Restore         bool
+	PGConnString    string
 }
 
 type Server struct {
 	services []Service
 }
 
-func New(settings Settings) *Server {
+func New(settings Settings) (*Server, error) {
 	// initialize logger
 	logger.Init()
 
@@ -56,18 +56,23 @@ func New(settings Settings) *Server {
 
 	// Создание экземпляра StorageService
 	var storage StorageService
+	var err error
 	// Если строка для поключения к бд не указана
-	if settings.PGConnectionString == "" {
+	if settings.PGConnString == "" {
 		// Создание локального хранилища метрик
 		storageSettings := memory.Settings{
 			StoreInterval:   settings.StoreInterval,
 			FileStoragePath: settings.FileStoragePath,
 			Restore:         settings.Restore,
 		}
-		storage = memory.New(&storageSettings)
+		storage, err = memory.New(&storageSettings)
 	} else {
 		// Создание хранилища с подключением к базе
-		storage = postgres.New(settings.PGConnectionString)
+		storage, err = postgres.New(settings.PGConnString)
+	}
+	if err != nil {
+		slog.Error("error creating storage. forcing exit.", slog.String("error", err.Error()))
+		return nil, err
 	}
 
 	// configure router settings
@@ -89,7 +94,7 @@ func New(settings Settings) *Server {
 	server.services = append(server.services, storage)
 	server.services = append(server.services, apiServer)
 
-	return server
+	return server, nil
 }
 
 func (s *Server) Start(ctx context.Context) error {
