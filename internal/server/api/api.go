@@ -1,16 +1,19 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/sync/errgroup"
 )
 
-const (
-	gauge   = "gauge"
-	counter = "counter"
-)
+// const (
+// 	gauge   = "gauge"
+// 	counter = "counter"
+// )
 
 // Интерфейс взаимодействия с репозиторием метрик.
 type MetricsStorage interface {
@@ -26,38 +29,40 @@ type MetricsStorage interface {
 type Settings struct {
 	Storage     MetricsStorage
 	Middlewares []func(http.Handler) http.Handler
+	Addr        string
 }
 
-// Router используется для обработки запросов к серверу.
-// Для создания экземпляра необходимо испольщовать функцию NewRouter(*Settings) *Router.
-type Router struct {
-	*chi.Mux
+// API используется для обработки запросов к серверу.
+// Для создания экземпляра необходимо испольщовать функцию New(*Settings) *API.
+type API struct {
 	storage MetricsStorage
+	server  *http.Server
 }
 
 // Фабрика создания роутера.
-// Необходима для правильной инициалищации экземпляра Router.
-func NewRouter(rs *Settings) *Router {
-	// создание экземпляра Router
-	r := &Router{
-		Mux:     chi.NewRouter(),
-		storage: rs.Storage,
+// Необходима для правильной инициалищации экземпляра API.
+func New(as *Settings) *API {
+	// создание экземпляра API
+	api := &API{
+		storage: as.Storage,
 	}
 
+	r := chi.NewRouter()
+
 	// передача слайса Middleware функций в chi.Mux
-	if rs.Middlewares != nil {
-		r.Use(rs.Middlewares...)
+	if as.Middlewares != nil {
+		r.Use(as.Middlewares...)
 	}
 
 	// настройка роутинга
-	r.Get("/", r.getAllHandler)
+	r.Get("/", api.getAllHandler)
 	r.Route("/update", func(rr chi.Router) {
-		rr.Post("/", r.updateJSONHandler)
-		rr.Post("/{kind}/{name}/{value}", r.updateHandler)
+		rr.Post("/", api.updateJSONHandler)
+		rr.Post("/{kind}/{name}/{value}", api.updateHandler)
 	})
 	r.Route("/value", func(rr chi.Router) {
-		rr.Post("/", r.getJSONMetricHandler)
-		rr.Get("/{kind}/{name}", r.getMetricHandler)
+		rr.Post("/", api.getJSONMetricHandler)
+		rr.Get("/{kind}/{name}", api.getMetricHandler)
 	})
 
 	// настройка ответов на не обрабатываемые сервером запросы
@@ -68,5 +73,29 @@ func NewRouter(rs *Settings) *Router {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	})
 
-	return r
+	api.server = &http.Server{
+		Addr:    as.Addr,
+		Handler: r,
+	}
+
+	return api
+}
+
+func (api *API) Start(ctx context.Context) error {
+	eg := errgroup.Group{}
+
+	eg.Go(func() error {
+		err := api.server.ListenAndServe()
+		if !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	})
+
+	<-ctx.Done()
+	eg.Go(func() error {
+		return api.server.Shutdown(context.TODO())
+	})
+
+	return eg.Wait()
 }

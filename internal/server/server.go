@@ -5,13 +5,16 @@ import (
 	"errors"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
-	"sync"
 	"time"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/server/api"
+	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/memory"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -19,7 +22,7 @@ const (
 )
 
 type Service interface {
-	Start(ctx context.Context)
+	Start(ctx context.Context) error
 	// Shutdown(ctx context.Context) error
 }
 
@@ -57,22 +60,23 @@ func New(settings Settings) *Server {
 	storage := memory.NewMetricStorage(&storageSettings)
 
 	// configure router settings
-	// routerSettings := &api.Settings{
-	// 	Storage: storage,
-	// 	Middlewares: []func(http.Handler) http.Handler{
-	// 		middleware.Logger,
-	// 		middleware.GzipCompressor,
-	// 		middleware.GzipUncompressor,
-	// 	},
-	// }
+	routerSettings := &api.Settings{
+		Addr:    settings.URL,
+		Storage: storage,
+		Middlewares: []func(http.Handler) http.Handler{
+			middleware.Logger,
+			middleware.GzipCompressor,
+			middleware.GzipUncompressor,
+		},
+	}
 
 	// Создание api сервера
-	// apiServer := api.New(routerSettings)
+	apiServer := api.New(routerSettings)
 
 	server := &Server{}
 
 	server.services = append(server.services, storage)
-	// server.services = append(server.services, apiServer)
+	server.services = append(server.services, apiServer)
 
 	return server
 }
@@ -83,7 +87,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return errors.New("no registered services")
 	}
 
-	wg := sync.WaitGroup{}
+	eg := errgroup.Group{}
 
 	// Слайс функция закрытия контекстов
 	stops := make([]func(), len(s.services))
@@ -95,10 +99,10 @@ func (s *Server) Start(ctx context.Context) error {
 		stops[i] = shutdownStopCtx
 
 		// Запуск сервиса
-		wg.Add(1)
-		go func(index int) {
-			s.services[index].Start(shutdownCtx)
-			wg.Done()
+		func(index int) {
+			eg.Go(func() error {
+				return s.services[index].Start(shutdownCtx)
+			})
 		}(i)
 	}
 
@@ -125,6 +129,5 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	// Ожидание остановки сервисов
-	wg.Wait()
-	return nil
+	return eg.Wait()
 }

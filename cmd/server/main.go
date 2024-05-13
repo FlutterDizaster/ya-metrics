@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
 )
@@ -72,13 +75,29 @@ func main() {
 	}
 
 	// Создание структуры с настройками сервера
-	settings := &server.Settings{
+	settings := server.Settings{
 		URL:                *endpoint,
 		StoreInterval:      *storeInterval,
 		FileStoragePath:    *fileStoragePath,
 		Restore:            restore,
 		PGConnectionString: *pgConnectionString,
 	}
+	// Создание сервера
+	srv := server.New(settings)
 
-	server.Setup(settings)
+	// Создание контекста отмены
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGINT,
+		syscall.SIGHUP,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+	defer cancel()
+
+	// Запуск сервера
+	if err = srv.Start(ctx); err != nil {
+		panic(err)
+	}
 }

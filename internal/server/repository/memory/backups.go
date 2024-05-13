@@ -8,7 +8,7 @@ import (
 )
 
 // Метод запускающий сервис бекапа.
-func (ms *MetricStorage) Start(ctx context.Context) {
+func (ms *MetricStorage) Start(ctx context.Context) error {
 	slog.Debug("Start backup service")
 	defer slog.Debug("Backup service successfully stopped")
 	ticker := &time.Ticker{
@@ -31,7 +31,7 @@ func (ms *MetricStorage) Start(ctx context.Context) {
 				ms.backup(true)
 			}
 			wg.Wait()
-			return
+			return nil
 		case <-ticker.C:
 			if !ms.awaiting.Load() {
 				ms.awaiting.Store(true)

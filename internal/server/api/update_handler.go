@@ -12,7 +12,7 @@ import (
 )
 
 // Handler для обноваления состояния метрики в репозитории.
-func (r *Router) updateHandler(w http.ResponseWriter, req *http.Request) {
+func (api *API) updateHandler(w http.ResponseWriter, req *http.Request) {
 	// парсинг URL запроса
 	kind := chi.URLParam(req, "kind")
 	name := chi.URLParam(req, "name")
@@ -26,7 +26,7 @@ func (r *Router) updateHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// добавление метрики в репозиторий
-	if _, err = r.storage.AddMetric(*metric); err != nil {
+	if _, err = api.storage.AddMetric(*metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -37,7 +37,7 @@ func (r *Router) updateHandler(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (r *Router) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
+func (api *API) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
 	var metric view.Metric
 	var buf bytes.Buffer
 
@@ -55,7 +55,7 @@ func (r *Router) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// добавление метрики в репозиторий
-	if metric, err = r.storage.AddMetric(metric); err != nil {
+	if metric, err = api.storage.AddMetric(metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
