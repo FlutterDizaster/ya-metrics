@@ -110,11 +110,11 @@ func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error
 }
 
 // Возвращает слайс всех хранящихся метрик.
-func (ms *MetricStorage) ReadAllMetrics() []view.Metric {
+func (ms *MetricStorage) ReadAllMetrics() ([]view.Metric, error) {
 	ms.cond.L.Lock()
 	defer ms.cond.L.Unlock()
 
-	return ms.getAllMetrics()
+	return ms.getAllMetrics(), nil
 }
 
 // Хелпер фенкция для добавления метрики типа kindCounter.

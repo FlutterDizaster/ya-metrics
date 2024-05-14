@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	// PostgreSQL driver.
@@ -47,20 +49,144 @@ func New(conn string) (*MetricStorage, error) {
 }
 
 func (ms *MetricStorage) Start(ctx context.Context) error {
+	// Проверяем есть ли таблица в бд и при необходимости создаем её
+	tableExist, err := ms.checkTable()
+	if !tableExist && err == nil {
+		err = ms.createTable()
+	}
+	if err != nil {
+		return err
+	}
+
 	// Ожидание завершения контекста
 	<-ctx.Done()
 	ms.db.Close()
 	return nil
 }
 
-func (ms *MetricStorage) AddMetric(_ view.Metric) (view.Metric, error) {
-	return view.Metric{}, nil
+func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
+	// Подготовка переменных
+	var value sql.NullFloat64
+	var delta sql.NullInt64
+	// Выполнение запроса
+	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancle()
+	err := ms.db.QueryRow(ctx,
+		`INSERT INTO metrics (id, mtype, value, delta)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (id) DO UPDATE
+		SET 
+			value = metrics.value,
+			delta = CASE WHEN EXCLUDED.mtype = 'counter' THEN metrics.delta + EXCLUDED.delta ELSE EXCLUDED.delta END
+		RETURNING value, delta;`,
+		metric.ID,
+		metric.MType,
+		metric.Value,
+		metric.Delta,
+	).Scan(&value, &delta)
+	if err != nil {
+		return view.Metric{}, err
+	}
+	// Сохранение ответа
+	if value.Valid {
+		metric.Value = &value.Float64
+	} else if delta.Valid {
+		metric.Delta = &delta.Int64
+	}
+
+	return metric, nil
 }
 
-func (ms *MetricStorage) GetMetric(_ string, _ string) (view.Metric, error) {
-	return view.Metric{}, nil
+func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error) {
+	var metric view.Metric
+	metric.ID = name
+	metric.MType = kind
+	// Подготовка переменных
+	var value sql.NullFloat64
+	var delta sql.NullInt64
+	// Выполнение запроса
+	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancle()
+	err := ms.db.QueryRow(ctx,
+		`SELECT value, delta
+		FROM metrics
+		WHERE id = $1 AND mtype = $2
+		LIMIT 1`,
+		name,
+		kind,
+	).Scan(&value, &delta)
+	// Проверка переменных на валидность
+	if value.Valid {
+		metric.Value = &value.Float64
+	} else if delta.Valid {
+		metric.Delta = &delta.Int64
+	}
+	return metric, err
 }
 
-func (ms *MetricStorage) ReadAllMetrics() []view.Metric {
-	return make([]view.Metric, 0)
+func (ms *MetricStorage) ReadAllMetrics() ([]view.Metric, error) {
+	metrics := make([]view.Metric, 0)
+	// Выполнение запроса
+	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancle()
+	rows, err := ms.db.Query(ctx, `SELECT id, mtype, value, delta FROM metrics`)
+	if err != nil {
+		return nil, err
+	}
+	// Проход по всем полученным строкам
+	for rows.Next() {
+		// Подготовка переменных
+		var (
+			metric view.Metric
+			id     string
+			mtype  string
+			value  sql.NullFloat64
+			delta  sql.NullInt64
+		)
+		// Сканирование строки
+		err = rows.Scan(&id, &mtype, &value, &delta)
+		if err != nil {
+			return nil, err
+		}
+		// Заполнение полей метрики
+		metric.ID = id
+		metric.MType = mtype
+		if value.Valid {
+			metric.Value = &value.Float64
+		} else if delta.Valid {
+			metric.Delta = &delta.Int64
+		}
+
+		metrics = append(metrics, metric)
+	}
+
+	return metrics, nil
+}
+
+func (ms *MetricStorage) createTable() error {
+	ctx, cancle := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancle()
+	_, err := ms.db.Exec(ctx,
+		`CREATE TABLE metrics (
+			id VARCHAR(255) UNIQUE,
+			mtype VARCHAR(255),
+			value DOUBLE PRECISION,
+			delta BIGINT
+		);`,
+	)
+	return err
+}
+
+func (ms *MetricStorage) checkTable() (bool, error) {
+	ctx, cancle := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancle()
+	tableExist := false
+	err := ms.db.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_name = 'metrics'
+		);`,
+	).Scan(&tableExist)
+	return tableExist, err
 }

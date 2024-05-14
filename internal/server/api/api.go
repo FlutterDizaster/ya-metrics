@@ -15,7 +15,7 @@ import (
 type MetricsStorage interface {
 	AddMetric(view.Metric) (view.Metric, error)
 	GetMetric(kind string, name string) (view.Metric, error)
-	ReadAllMetrics() []view.Metric
+	ReadAllMetrics() ([]view.Metric, error)
 	Ping() error
 }
 

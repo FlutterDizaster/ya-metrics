@@ -45,7 +45,11 @@ func (api *API) getAllHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	// получение всех метрик из репозитория
-	metrics := api.storage.ReadAllMetrics()
+	metrics, err := api.storage.ReadAllMetrics()
+	if err != nil {
+		http.Error(w, "Error whlie getting metrics from repository", http.StatusInternalServerError)
+		return
+	}
 	sort.Slice(metrics, func(i, j int) bool {
 		return metrics[i].ID < metrics[j].ID
 	})
