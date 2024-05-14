@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
@@ -55,10 +56,33 @@ func (ms *MetricStorage) Start(ctx context.Context) error {
 		return err
 	}
 
+	// TODO: Компиляция запросов
+
 	// Ожидание завершения контекста
 	<-ctx.Done()
 	ms.db.Close()
 	return nil
+}
+
+func (ms *MetricStorage) AddBatchMetrics(metrics []view.Metric) error {
+	ctx, cancle := context.WithTimeout(context.TODO(), 3*time.Second)
+	defer cancle()
+	// Начало транзакции
+	tx, err := ms.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	// записываем каждую метрику
+	for _, metric := range metrics {
+		_, err = tx.Exec(ctx, queryAdd, metric.ID, metric.MType, metric.Value, metric.Delta)
+		if err != nil {
+			return errors.Join(err, tx.Rollback(ctx))
+		}
+	}
+
+	// Коммитим транзакцию
+	return tx.Commit(ctx)
 }
 
 func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {

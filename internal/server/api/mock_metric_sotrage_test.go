@@ -34,3 +34,7 @@ func (m *MockMetricsStorage) ReadAllMetrics() ([]view.Metric, error) {
 func (m *MockMetricsStorage) Ping() error {
 	return m.pingErr
 }
+
+func (m *MockMetricsStorage) AddBatchMetrics([]view.Metric) error {
+	return nil
+}

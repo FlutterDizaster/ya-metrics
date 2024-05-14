@@ -17,6 +17,9 @@ const (
 	KindCounter = "counter"
 )
 
+//easyjson:json
+type Metrics []Metric
+
 //go:generate easyjson -all metric.go
 type Metric struct {
 	ID     string       `json:"id"`              // имя метрики

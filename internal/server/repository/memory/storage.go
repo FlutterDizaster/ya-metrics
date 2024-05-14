@@ -72,6 +72,34 @@ func New(settings *Settings) (*MetricStorage, error) {
 	return ms, nil
 }
 
+func (ms *MetricStorage) AddBatchMetrics(metrics []view.Metric) error {
+	// Блокировка mutex в cond, чтобы избежать чтения данных при бекапе.
+	ms.cond.L.Lock()
+	defer func() {
+		// Оповещение фенкции бекапа о том, что можно продолжать выполнение программы.
+		ms.cond.Broadcast()
+		ms.cond.L.Unlock()
+	}()
+
+	for i := range metrics {
+		metric := metrics[i]
+
+		var err error
+		switch metric.MType {
+		case kindGauge:
+			_, err = ms.addGauge(metric)
+		case kindCounter:
+			_, err = ms.addCounter(metric)
+		default:
+			return errWrongType
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Метод добавления метрики. Если метрика с metric.ID уже добавлена, то обновляется её значение.
 // Возвращает метрику с обновленным значением.
 func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
