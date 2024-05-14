@@ -13,7 +13,7 @@ const (
 	VALUES ($1, $2, $3, $4)
 	ON CONFLICT (id) DO UPDATE
 	SET 
-		value = metrics.value,
+		value = EXCLUDED.value,
 		delta = CASE WHEN EXCLUDED.mtype = 'counter' THEN metrics.delta + EXCLUDED.delta ELSE EXCLUDED.delta END
 	RETURNING value, delta;`
 	// Запрос для проверки существования таблицы и её создания при необходимости.
