@@ -43,29 +43,28 @@ func NewSender(settings *Settings) *Sender {
 func (s *Sender) SendMetrics(ctx context.Context, metrics []view.Metric) {
 	slog.Debug("Sending metrics")
 
-	for _, metric := range metrics {
-		s.sendMetric(ctx, metric)
-	}
+	s.sendBatch(ctx, metrics)
+	// for _, metric := range metrics {
+	// 	s.sendMetric(ctx, metric)
+	// }
 	slog.Debug("Metrics sended")
 }
 
-func (s *Sender) sendMetric(ctx context.Context, metric view.Metric) {
-	// Marshal метрики
-	metricBytes, err := metric.MarshalJSON()
+func (s *Sender) sendBatch(ctx context.Context, metrics view.Metrics) {
+	metricsBytes, err := metrics.MarshalJSON()
 	if err != nil {
 		slog.Error("marshaling error", "error", err)
 		return
 	}
 
-	// Создание запроса
 	req := s.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetContext(ctx)
 
 	// Сжатие метрики
-	data, err := compressData(metricBytes)
+	data, err := compressData(metricsBytes)
 	if err != nil {
-		req.SetBody(metricBytes)
+		req.SetBody(metricsBytes)
 	} else {
 		req.SetHeader("Content-Encoding", "gzip").
 			SetBody(data)
@@ -78,10 +77,43 @@ func (s *Sender) sendMetric(ctx context.Context, metric view.Metric) {
 		"request send",
 		"error", err,
 		"status", resp.StatusCode(),
-		"metric", metric.ID,
-		"value", metric.StringValue(),
+		"metrics count", len(metrics),
 	)
 }
+
+// func (s *Sender) sendMetric(ctx context.Context, metric view.Metric) {
+// 	// Marshal метрики
+// 	metricBytes, err := metric.MarshalJSON()
+// 	if err != nil {
+// 		slog.Error("marshaling error", "error", err)
+// 		return
+// 	}
+
+// 	// Создание запроса
+// 	req := s.client.R().
+// 		SetHeader("Content-Type", "application/json").
+// 		SetContext(ctx)
+
+// 	// Сжатие метрики
+// 	data, err := compressData(metricBytes)
+// 	if err != nil {
+// 		req.SetBody(metricBytes)
+// 	} else {
+// 		req.SetHeader("Content-Encoding", "gzip").
+// 			SetBody(data)
+// 	}
+
+// 	// Отправка запроса
+// 	resp, err := req.Post(s.endpointAddr)
+
+// 	slog.Info(
+// 		"request send",
+// 		"error", err,
+// 		"status", resp.StatusCode(),
+// 		"metric", metric.ID,
+// 		"value", metric.StringValue(),
+// 	)
+// }
 
 func compressData(data []byte) ([]byte, error) {
 	buf := &bytes.Buffer{}
