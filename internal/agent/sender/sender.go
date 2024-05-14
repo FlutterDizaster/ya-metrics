@@ -31,7 +31,7 @@ func NewSender(settings *Settings) *Sender {
 	slog.Debug("Creating sender")
 	sender := &Sender{
 		metricsBuffer: make([]view.Metric, 0),
-		endpointAddr:  fmt.Sprintf("http://%s/update", settings.Addr),
+		endpointAddr:  fmt.Sprintf("http://%s/updates", settings.Addr),
 		client:        resty.New(),
 	}
 	sender.client.SetRetryCount(settings.RetryCount)
@@ -76,8 +76,9 @@ func (s *Sender) sendBatch(ctx context.Context, metrics view.Metrics) {
 	slog.Info(
 		"request send",
 		"error", err,
-		"status", resp.StatusCode(),
 		"metrics count", len(metrics),
+		"status", resp.StatusCode(),
+		// "response", string(resp.Body()),
 	)
 }
 
