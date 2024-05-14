@@ -50,10 +50,7 @@ func New(conn string) (*MetricStorage, error) {
 
 func (ms *MetricStorage) Start(ctx context.Context) error {
 	// Проверяем есть ли таблица в бд и при необходимости создаем её
-	tableExist, err := ms.checkTable()
-	if !tableExist && err == nil {
-		err = ms.createTable()
-	}
+	err := ms.checkAndCreateTable()
 	if err != nil {
 		return err
 	}
@@ -71,19 +68,8 @@ func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
 	// Выполнение запроса
 	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancle()
-	err := ms.db.QueryRow(ctx,
-		`INSERT INTO metrics (id, mtype, value, delta)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (id) DO UPDATE
-		SET 
-			value = metrics.value,
-			delta = CASE WHEN EXCLUDED.mtype = 'counter' THEN metrics.delta + EXCLUDED.delta ELSE EXCLUDED.delta END
-		RETURNING value, delta;`,
-		metric.ID,
-		metric.MType,
-		metric.Value,
-		metric.Delta,
-	).Scan(&value, &delta)
+	err := ms.db.QueryRow(ctx, queryAdd, metric.ID, metric.MType, metric.Value, metric.Delta).
+		Scan(&value, &delta)
 	if err != nil {
 		return view.Metric{}, err
 	}
@@ -107,14 +93,7 @@ func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error
 	// Выполнение запроса
 	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancle()
-	err := ms.db.QueryRow(ctx,
-		`SELECT value, delta
-		FROM metrics
-		WHERE id = $1 AND mtype = $2
-		LIMIT 1`,
-		name,
-		kind,
-	).Scan(&value, &delta)
+	err := ms.db.QueryRow(ctx, queryGetOne, name, kind).Scan(&value, &delta)
 	// Проверка переменных на валидность
 	if value.Valid {
 		metric.Value = &value.Float64
@@ -129,7 +108,7 @@ func (ms *MetricStorage) ReadAllMetrics() ([]view.Metric, error) {
 	// Выполнение запроса
 	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancle()
-	rows, err := ms.db.Query(ctx, `SELECT id, mtype, value, delta FROM metrics`)
+	rows, err := ms.db.Query(ctx, gueryGetAll)
 	if err != nil {
 		return nil, err
 	}
@@ -163,30 +142,9 @@ func (ms *MetricStorage) ReadAllMetrics() ([]view.Metric, error) {
 	return metrics, nil
 }
 
-func (ms *MetricStorage) createTable() error {
+func (ms *MetricStorage) checkAndCreateTable() error {
 	ctx, cancle := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancle()
-	_, err := ms.db.Exec(ctx,
-		`CREATE TABLE metrics (
-			id VARCHAR(255) UNIQUE,
-			mtype VARCHAR(255),
-			value DOUBLE PRECISION,
-			delta BIGINT
-		);`,
-	)
+	_, err := ms.db.Exec(ctx, queryCheckAndCreateDB)
 	return err
-}
-
-func (ms *MetricStorage) checkTable() (bool, error) {
-	ctx, cancle := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancle()
-	tableExist := false
-	err := ms.db.QueryRow(ctx,
-		`SELECT EXISTS (
-			SELECT 1
-			FROM information_schema.tables
-			WHERE table_name = 'metrics'
-		);`,
-	).Scan(&tableExist)
-	return tableExist, err
 }

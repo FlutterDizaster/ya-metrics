@@ -41,6 +41,7 @@ type MetricStorage struct {
 
 // Функция фабрика для создания нового экземпляра MetricStorage.
 func New(settings *Settings) (*MetricStorage, error) {
+	slog.Debug("Creating DB storage")
 	ms := &MetricStorage{
 		storeInterval:   settings.StoreInterval,
 		fileStoragePath: settings.FileStoragePath,
@@ -67,6 +68,7 @@ func New(settings *Settings) (*MetricStorage, error) {
 	ms.file = file
 	ms.writer = bufio.NewWriter(file)
 
+	slog.Debug("Storage created")
 	return ms, nil
 }
 
