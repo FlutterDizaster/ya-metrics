@@ -53,32 +53,37 @@ func main() {
 
 func parseConfig() server.Settings {
 	var settings server.Settings
-	flag.StringVar(
+	flag.StringVarP(
 		&settings.URL,
+		"address",
 		"a",
 		defaultEndpoint,
 		"Server endpoint addres. Default localhost:8080",
 	)
-	flag.StringVar(
+	flag.StringVarP(
 		&settings.FileStoragePath,
+		"file",
 		"f",
 		defaultFileStoragePath,
 		"Backup file path. Default /tmp/metrics-db.json",
 	)
-	flag.StringVar(
+	flag.StringVarP(
 		&settings.PGConnString,
+		"dbconn",
 		"d",
 		defaultPGConnString,
 		"Postgres connection string",
 	)
-	flag.BoolVar(
+	flag.BoolVarP(
 		&settings.Restore,
+		"restore",
 		"r",
 		defaultRestore,
 		"the flag indicates whether a backup should be loaded from a file",
 	)
-	flag.IntVar(
+	flag.IntVarP(
 		&settings.StoreInterval,
+		"interval",
 		"i",
 		defaultStoreInterval,
 		"Time between backups in seconds. Default 300",
