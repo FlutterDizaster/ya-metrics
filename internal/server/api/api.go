@@ -56,7 +56,7 @@ func New(as *Settings) *API {
 	// настройка роутинга
 	r.Get("/", api.getAllHandler)
 	r.Get("/ping", api.pingHandler)
-	r.Post("/updates", api.updateBatchHandler)
+	r.Post("/updates/", api.updateBatchHandler)
 	r.Route("/update", func(rr chi.Router) {
 		rr.Post("/", api.updateJSONHandler)
 		rr.Post("/{kind}/{name}/{value}", api.updateHandler)

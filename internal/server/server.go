@@ -117,6 +117,7 @@ func (s *Server) Start(ctx context.Context) error {
 		}(i)
 	}
 	// Ждем завершения контекста
+	// TODO: Запустить в отдельной горутине. Мешает распространению ошибки во время запуска
 	<-ctx.Done()
 	slog.Info("Shutdown...")
 	defer slog.Info("All services stopped")
