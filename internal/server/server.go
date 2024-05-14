@@ -66,7 +66,7 @@ func New(settings Settings) (*Server, error) {
 	} else {
 		// Создание хранилища с подключением к базе
 		storage, err = postgres.New(settings.PGConnString)
-		slog.Info("storage created", slog.String("mode", "DB"))
+		slog.Info("storage created", slog.String("mode", "DB"), slog.String("conn string", settings.PGConnString))
 	}
 	if err != nil {
 		slog.Error("error creating storage. forcing exit.", slog.String("error", err.Error()))

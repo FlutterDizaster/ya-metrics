@@ -2,12 +2,11 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
-	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	// PostgreSQL driver.
-	_ "github.com/jackc/pgx/v5"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // type DataProvider interface {
@@ -20,34 +19,38 @@ import (
 // var _ DataProvider = &MetricStorage{}
 
 type MetricStorage struct {
-	pgConnString string
-	db           *sql.DB
+	db *pgxpool.Pool
 }
 
 func New(conn string) (*MetricStorage, error) {
+	ms := &MetricStorage{}
 	// Создание экземпляра DB
-	db, err := sql.Open("pgx", conn)
+	poolConfig, err := pgxpool.ParseConfig(conn)
 	if err != nil {
 		return nil, err
 	}
 
-	// Проверка подключения
-	ctx, cancle := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancle()
-	if err = db.PingContext(ctx); err != nil {
+	db, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	if err != nil {
 		return nil, err
 	}
 
-	return &MetricStorage{
-		pgConnString: conn,
-		db:           db,
-	}, nil
+	ms.db = db
+
+	// Проверка подключения
+	err = ms.Ping()
+	if err != nil {
+		return nil, err
+	}
+
+	return ms, nil
 }
 
 func (ms *MetricStorage) Start(ctx context.Context) error {
 	// Ожидание завершения контекста
 	<-ctx.Done()
-	return ms.db.Close()
+	ms.db.Close()
+	return nil
 }
 
 func (ms *MetricStorage) AddMetric(_ view.Metric) (view.Metric, error) {
