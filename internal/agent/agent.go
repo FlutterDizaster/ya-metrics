@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	retryCount         = 10
-	retryIntervalMS    = 200
-	retryMaxWaitTime   = 2
+	retryCount         = 3
+	retryIntervalMS    = 1000
+	retryMaxWaitTime   = 5
 	gracefullPeriodSec = 20
 )
 
