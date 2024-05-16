@@ -20,7 +20,6 @@ type gzipResponseWriter struct {
 func (w *gzipResponseWriter) Write(data []byte) (int, error) {
 	// TODO: переделать длинну порога
 	// Сжимаем данные только если их размер больше 75 байт
-	slog.Debug("Compressing data", slog.Int("data_len", len(data)))
 	if len(data) > 150 {
 		// Получение доступа к пулу
 		pool := gzipCompressorPool()
@@ -52,6 +51,11 @@ func (w *gzipResponseWriter) Write(data []byte) (int, error) {
 		pool.Put(gzip)
 		// Установка хедера
 		w.Header().Set("Content-Encoding", "gzip")
+		slog.Debug(
+			"Compressing data",
+			slog.Int("raw_data_len", len(data)),
+			slog.Int("compressed_data_len", buf.Len()),
+		)
 		return w.ResponseWriter.Write(buf.Bytes())
 	}
 	return w.ResponseWriter.Write(data)
