@@ -1,12 +1,14 @@
-package router
+package api
 
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +31,7 @@ func TestRouter_getMetricHandler(t *testing.T) {
 			values: []view.Metric{
 				{
 					ID:    "test1",
-					MType: gauge,
+					MType: view.KindGauge,
 					Value: func(i float64) *float64 { return &i }(54),
 				},
 			},
@@ -42,11 +44,14 @@ func TestRouter_getMetricHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := NewRouter(&Settings{
+			api := New(&Settings{
 				Storage: &MockMetricsStorage{
 					content: tt.values,
 				},
 			})
+
+			r := chi.NewRouter()
+			r.Get("/value/{kind}/{name}", api.getMetricHandler)
 
 			server := httptest.NewServer(r)
 			defer server.Close()
@@ -86,7 +91,7 @@ func TestRouter_getJSONMetricHandler(t *testing.T) {
 			values: []view.Metric{
 				{
 					ID:    "test1",
-					MType: gauge,
+					MType: view.KindGauge,
 					Value: func(i float64) *float64 { return &i }(54),
 				},
 			},
@@ -101,13 +106,13 @@ func TestRouter_getJSONMetricHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := NewRouter(&Settings{
+			r := New(&Settings{
 				Storage: &MockMetricsStorage{
 					content: tt.values,
 				},
 			})
 
-			server := httptest.NewServer(r)
+			server := httptest.NewServer(http.HandlerFunc(r.getJSONMetricHandler))
 			defer server.Close()
 
 			client := resty.New()

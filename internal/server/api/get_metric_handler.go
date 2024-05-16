@@ -1,4 +1,4 @@
-package router
+package api
 
 import (
 	"bytes"
@@ -11,13 +11,13 @@ import (
 )
 
 // Handler для получения значения конкретной метрики по её типу и имени.
-func (r *Router) getMetricHandler(w http.ResponseWriter, req *http.Request) {
+func (api *API) getMetricHandler(w http.ResponseWriter, req *http.Request) {
 	// парсинг url запроса для получения типа и имени искомой метрики
 	kind := chi.URLParam(req, "kind")
 	name := chi.URLParam(req, "name")
 
 	// получение метрики из репозитория
-	metric, err := r.storage.GetMetric(kind, name)
+	metric, err := api.storage.GetMetric(kind, name)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -32,7 +32,7 @@ func (r *Router) getMetricHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Handler для получения значения конкретной метрики по её типу и имени в формате JSON.
-func (r *Router) getJSONMetricHandler(w http.ResponseWriter, req *http.Request) {
+func (api *API) getJSONMetricHandler(w http.ResponseWriter, req *http.Request) {
 	var reqMetric view.Metric
 	var buf bytes.Buffer
 
@@ -50,7 +50,7 @@ func (r *Router) getJSONMetricHandler(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// получение метрики из репозитория
-	metric, err := r.storage.GetMetric(reqMetric.MType, reqMetric.ID)
+	metric, err := api.storage.GetMetric(reqMetric.MType, reqMetric.ID)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 	}

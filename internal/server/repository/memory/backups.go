@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-func (ms *MetricStorage) StartBackups(ctx context.Context) {
+// Метод запускающий сервис бекапа.
+func (ms *MetricStorage) Start(ctx context.Context) error {
 	slog.Debug("Start backup service")
 	defer slog.Debug("Backup service successfully stopped")
 	ticker := &time.Ticker{
@@ -21,18 +22,19 @@ func (ms *MetricStorage) StartBackups(ctx context.Context) {
 
 	for {
 		select {
+		// Grasefull Shutdown
 		case <-ctx.Done():
 			ticker.Stop()
-			if ms.isAwaiting() {
+			if ms.awaiting.Load() {
 				ms.cond.Broadcast()
 			} else {
 				ms.backup(true)
 			}
 			wg.Wait()
-			return
+			return nil
 		case <-ticker.C:
-			if !ms.isAwaiting() {
-				ms.setAwaiting(true)
+			if !ms.awaiting.Load() {
+				ms.awaiting.Store(true)
 				wg.Add(1)
 				go func() {
 					ms.backup(false)
@@ -41,8 +43,8 @@ func (ms *MetricStorage) StartBackups(ctx context.Context) {
 			}
 		default:
 			if ms.storeInterval == 0 {
-				if !ms.isAwaiting() {
-					ms.setAwaiting(true)
+				if !ms.awaiting.Load() {
+					ms.awaiting.Store(true)
 					wg.Add(1)
 					go func() {
 						ms.backup(false)
@@ -54,25 +56,12 @@ func (ms *MetricStorage) StartBackups(ctx context.Context) {
 	}
 }
 
-func (ms *MetricStorage) isAwaiting() bool {
-	ms.awmtx.Lock()
-	defer ms.awmtx.Unlock()
-	return ms.awaiting
-}
-
-func (ms *MetricStorage) setAwaiting(is bool) {
-	ms.awmtx.Lock()
-	ms.awaiting = is
-	ms.awmtx.Unlock()
-}
-
+// Метод сохраняющий метрики на диск.
 func (ms *MetricStorage) backup(skipWait bool) {
 	ms.cond.L.Lock()
 	defer ms.cond.L.Unlock()
 
-	// slog.Debug("Waiting metrics for backup")
 	if !skipWait {
-		// slog.Debug("Waiting new data")
 		ms.cond.Wait()
 	}
 
@@ -84,5 +73,5 @@ func (ms *MetricStorage) backup(skipWait bool) {
 	}
 
 	slog.Debug("Backup created")
-	ms.setAwaiting(false)
+	ms.awaiting.Store(false)
 }

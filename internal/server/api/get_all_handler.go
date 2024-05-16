@@ -1,4 +1,4 @@
-package router
+package api
 
 import (
 	"html/template"
@@ -7,7 +7,7 @@ import (
 )
 
 // Handler отдающий таблицу со всеми имеющимися метриками и их значениями.
-func (r *Router) getAllHandler(w http.ResponseWriter, _ *http.Request) {
+func (api *API) getAllHandler(w http.ResponseWriter, _ *http.Request) {
 	// шаблон html страницы с ответом
 	// TODO: вынести в отдельный template файл
 	content := `{{define "metrics"}}
@@ -45,7 +45,11 @@ func (r *Router) getAllHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	// получение всех метрик из репозитория
-	metrics := r.storage.ReadAllMetrics()
+	metrics, err := api.storage.ReadAllMetrics()
+	if err != nil {
+		http.Error(w, "Error whlie getting metrics from repository", http.StatusInternalServerError)
+		return
+	}
 	sort.Slice(metrics, func(i, j int) bool {
 		return metrics[i].ID < metrics[j].ID
 	})

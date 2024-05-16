@@ -5,20 +5,22 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
-	"github.com/FlutterDizaster/ya-metrics/internal/sender"
-	"github.com/FlutterDizaster/ya-metrics/internal/telemetry"
+	"github.com/FlutterDizaster/ya-metrics/internal/agent/sender"
+	"github.com/FlutterDizaster/ya-metrics/internal/agent/telemetry"
+	"github.com/FlutterDizaster/ya-metrics/internal/agent/worker"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
-	"github.com/FlutterDizaster/ya-metrics/internal/worker"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
 const (
-	retryCount       = 10
-	retryIntervalMS  = 200
-	retryMaxWaitTime = 2
+	retryCount         = 3
+	retryIntervalMS    = 1000
+	retryMaxWaitTime   = 5
+	gracefullPeriodSec = 20
 )
 
 func Setup(endpoint string, reportInterval int, pollInterval int) {
@@ -58,9 +60,9 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 		context.Background(),
 		os.Interrupt,
 		syscall.SIGINT,
-		// syscall.SIGHUP,
-		// syscall.SIGTERM,
-		// syscall.SIGQUIT,
+		syscall.SIGHUP,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
 	)
 	defer cancel()
 
@@ -90,5 +92,35 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 		)
 	}
 
-	w.Start(ctx)
+	var wg sync.WaitGroup
+
+	// Создание контекста воркера
+	workerCtx, workerCancleCtx := context.WithCancel(context.Background())
+	wg.Add(1)
+	go func() {
+		w.Start(workerCtx)
+		wg.Done()
+	}()
+
+	// Ожидание завершения контекста сигналом системы
+	<-ctx.Done()
+
+	// Запуск Gracefull Keeper
+	// Завершает выполнение программы через gracefullPeriodSec секунд, если программа не завершится сама
+	forceCtx, forceStopCtx := context.WithTimeout(
+		context.Background(),
+		gracefullPeriodSec*time.Second,
+	)
+	defer forceStopCtx()
+	go func() {
+		<-forceCtx.Done()
+		if forceCtx.Err() == context.DeadlineExceeded {
+			slog.Error("shutdown timed out... forcing exit.")
+			os.Exit(1)
+		}
+	}()
+
+	workerCancleCtx()
+
+	wg.Wait()
 }

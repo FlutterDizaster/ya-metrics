@@ -1,4 +1,4 @@
-package router
+package api
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 )
 
 type MockMetricsStorage struct {
+	pingErr error
 	content []view.Metric
 }
 
@@ -26,6 +27,14 @@ func (m *MockMetricsStorage) AddMetric(metric view.Metric) (view.Metric, error) 
 	return metric, nil
 }
 
-func (m *MockMetricsStorage) ReadAllMetrics() []view.Metric {
-	return m.content
+func (m *MockMetricsStorage) ReadAllMetrics() ([]view.Metric, error) {
+	return m.content, nil
+}
+
+func (m *MockMetricsStorage) Ping() error {
+	return m.pingErr
+}
+
+func (m *MockMetricsStorage) AddBatchMetrics([]view.Metric) error {
+	return nil
 }

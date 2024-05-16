@@ -1,4 +1,4 @@
-package router
+package api
 
 import (
 	"encoding/json"
@@ -8,12 +8,26 @@ import (
 	"testing"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRouter_updateHandler(t *testing.T) {
+	storage := &MockMetricsStorage{
+		content: make([]view.Metric, 0),
+	}
+	api := New(&Settings{
+		Storage: storage,
+	})
+
+	r := chi.NewRouter()
+	r.Post("/update/{kind}/{name}/{value}", api.updateHandler)
+
+	server := httptest.NewServer(r)
+	defer server.Close()
+
 	type want struct {
 		code        int
 		contentType string
@@ -35,7 +49,7 @@ func TestRouter_updateHandler(t *testing.T) {
 				code:        200,
 				contentType: "text/plain charset=utf-8",
 				metric: view.Metric{
-					MType: counter,
+					MType: view.KindCounter,
 					ID:    "test",
 					Delta: func(i int64) *int64 { return &i }(55),
 				},
@@ -44,16 +58,6 @@ func TestRouter_updateHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := &MockMetricsStorage{
-				content: make([]view.Metric, 0),
-			}
-			r := NewRouter(&Settings{
-				Storage: storage,
-			})
-
-			server := httptest.NewServer(r)
-			defer server.Close()
-
 			client := resty.New()
 
 			resp, err := client.R().Post(fmt.Sprintf("%s%s", server.URL, tt.request))
@@ -97,11 +101,11 @@ func TestRouter_updateJSONHandler(t *testing.T) {
 			storage := &MockMetricsStorage{
 				content: make([]view.Metric, 0),
 			}
-			r := NewRouter(&Settings{
+			r := New(&Settings{
 				Storage: storage,
 			})
 
-			server := httptest.NewServer(r)
+			server := httptest.NewServer(http.HandlerFunc(r.updateJSONHandler))
 			defer server.Close()
 
 			client := resty.New()

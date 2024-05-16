@@ -1,7 +1,8 @@
-package router
+package api
 
 import (
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -58,13 +59,13 @@ func TestRouter_getAllHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := NewRouter(&Settings{
+			r := New(&Settings{
 				Storage: &MockMetricsStorage{
 					content: tt.values,
 				},
 			})
 
-			server := httptest.NewServer(r)
+			server := httptest.NewServer(http.HandlerFunc(r.getAllHandler))
 			defer server.Close()
 
 			client := resty.New()
