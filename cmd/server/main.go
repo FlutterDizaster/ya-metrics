@@ -23,17 +23,21 @@ const (
 )
 
 func main() {
+	os.Exit(mainReturnWithCode())
+}
+
+func mainReturnWithCode() int {
 	// initialize logger
-	logger.Init()
+	logger.New()
 
 	// Создание структуры с настройками сервера
 	settings := parseConfig()
 	// Создание сервера
 	srv, err := server.New(settings)
 	if err != nil {
-		panic(err)
+		slog.Error("Creating server error", slog.String("error", err.Error()))
+		return 1
 	}
-
 	// Создание контекста отмены
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),
@@ -47,8 +51,11 @@ func main() {
 
 	// Запуск сервера
 	if err = srv.Start(ctx); err != nil {
-		panic(err)
+		slog.Error("Server startuo error", slog.String("error", err.Error()))
+		return 1
 	}
+
+	return 0
 }
 
 func parseConfig() server.Settings {

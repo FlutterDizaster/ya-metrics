@@ -44,9 +44,7 @@ func (s *Sender) SendMetrics(ctx context.Context, metrics []view.Metric) {
 	slog.Debug("Sending metrics")
 
 	s.sendBatch(ctx, metrics)
-	// for _, metric := range metrics {
-	// 	s.sendMetric(ctx, metric)
-	// }
+
 	slog.Debug("Metrics sended")
 }
 
@@ -78,43 +76,8 @@ func (s *Sender) sendBatch(ctx context.Context, metrics view.Metrics) {
 		"error", err,
 		"metrics count", len(metrics),
 		"status", resp.StatusCode(),
-		// "response", string(resp.Body()),
 	)
 }
-
-// func (s *Sender) sendMetric(ctx context.Context, metric view.Metric) {
-// 	// Marshal метрики
-// 	metricBytes, err := metric.MarshalJSON()
-// 	if err != nil {
-// 		slog.Error("marshaling error", "error", err)
-// 		return
-// 	}
-
-// 	// Создание запроса
-// 	req := s.client.R().
-// 		SetHeader("Content-Type", "application/json").
-// 		SetContext(ctx)
-
-// 	// Сжатие метрики
-// 	data, err := compressData(metricBytes)
-// 	if err != nil {
-// 		req.SetBody(metricBytes)
-// 	} else {
-// 		req.SetHeader("Content-Encoding", "gzip").
-// 			SetBody(data)
-// 	}
-
-// 	// Отправка запроса
-// 	resp, err := req.Post(s.endpointAddr)
-
-// 	slog.Info(
-// 		"request send",
-// 		"error", err,
-// 		"status", resp.StatusCode(),
-// 		"metric", metric.ID,
-// 		"value", metric.StringValue(),
-// 	)
-// }
 
 func compressData(data []byte) ([]byte, error) {
 	buf := &bytes.Buffer{}

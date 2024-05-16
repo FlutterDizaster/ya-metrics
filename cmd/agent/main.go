@@ -7,9 +7,12 @@ import (
 	"strconv"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/agent"
+	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
 func main() {
+	logger.New()
+
 	endpoint := flag.String("a", "localhost:8080", "HTTP-server addres. Default \"localhost:8080\"")
 	reportInterval := flag.Int("r", 10, "Report interval in seconds. Default 10 sec")
 	pollInterval := flag.Int("p", 2, "Metrics poll interval. Default 2 sec")

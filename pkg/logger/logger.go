@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func Init() {
+func New() {
 	opts := &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}

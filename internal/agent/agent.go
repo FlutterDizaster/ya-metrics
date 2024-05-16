@@ -13,18 +13,20 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/telemetry"
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/worker"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
-	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
-const (
-	retryCount         = 3
-	retryIntervalMS    = 1000
-	retryMaxWaitTime   = 5
-	gracefullPeriodSec = 20
-)
+type Config struct {
+	// TODO: Вынести в отдельный файл и добавить логику загрузки дефолтных значений
+}
 
 func Setup(endpoint string, reportInterval int, pollInterval int) {
-	logger.Init()
+	// TODO: вынести в конфиг
+	var (
+		retryCount       = 3
+		retryInterval    = 1 * time.Second
+		retryMaxWaitTime = 5 * time.Second
+		gracefullPeriod  = 20 * time.Second
+	)
 
 	customMetricsList := []view.Metric{
 		{ID: "Alloc", MType: "gauge", Source: view.MemStats},
@@ -69,8 +71,8 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 	senderSettings := &sender.Settings{
 		Addr:             endpoint,
 		RetryCount:       retryCount,
-		RetryInterval:    retryIntervalMS * time.Microsecond,
-		RetryMaxWaitTime: retryMaxWaitTime * time.Second,
+		RetryInterval:    retryInterval,
+		RetryMaxWaitTime: retryMaxWaitTime,
 	}
 
 	sender := sender.NewSender(senderSettings)
@@ -109,7 +111,7 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 	// Завершает выполнение программы через gracefullPeriodSec секунд, если программа не завершится сама
 	forceCtx, forceStopCtx := context.WithTimeout(
 		context.Background(),
-		gracefullPeriodSec*time.Second,
+		gracefullPeriod,
 	)
 	defer forceStopCtx()
 	go func() {
