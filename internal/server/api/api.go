@@ -48,9 +48,7 @@ func New(as *Settings) *API {
 	r := chi.NewRouter()
 
 	// передача слайса Middleware функций в chi.Mux
-	if as.Middlewares != nil {
-		r.Use(as.Middlewares...)
-	}
+	r.Use(as.Middlewares...)
 
 	// настройка роутинга
 	r.Get("/", api.getAllHandler)
