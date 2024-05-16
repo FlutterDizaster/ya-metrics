@@ -26,7 +26,7 @@ func (api *API) updateHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// добавление метрики в репозиторий
-	if _, err = api.storage.AddMetric(*metric); err != nil {
+	if _, err = api.storage.AddMetrics(*metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -55,13 +55,14 @@ func (api *API) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// добавление метрики в репозиторий
-	if metric, err = api.storage.AddMetric(metric); err != nil {
+	metrics, err := api.storage.AddMetrics(metric)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Marshal ответа
-	resp, err := metric.MarshalJSON()
+	resp, err := metrics[0].MarshalJSON()
 	if err != nil {
 		slog.Error(
 			"marshaling error",

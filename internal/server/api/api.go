@@ -13,8 +13,7 @@ import (
 
 // Интерфейс взаимодействия с репозиторием метрик.
 type MetricsStorage interface {
-	AddMetric(view.Metric) (view.Metric, error)
-	AddBatchMetrics([]view.Metric) error
+	AddMetrics(...view.Metric) ([]view.Metric, error)
 	GetMetric(kind string, name string) (view.Metric, error)
 	ReadAllMetrics() ([]view.Metric, error)
 	Ping() error
