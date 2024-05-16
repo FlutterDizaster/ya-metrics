@@ -20,7 +20,7 @@ type gzipResponseWriter struct {
 func (w *gzipResponseWriter) Write(data []byte) (int, error) {
 	// TODO: переделать длинну порога
 	// Сжимаем данные только если их размер больше 75 байт
-	if len(data) > 150 {
+	if len(data) > 0 {
 		// Получение доступа к пулу
 		pool := gzipCompressorPool()
 		// Получение writer'а из пула
