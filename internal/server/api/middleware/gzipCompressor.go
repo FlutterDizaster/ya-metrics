@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ type gzipResponseWriter struct {
 func (w *gzipResponseWriter) Write(data []byte) (int, error) {
 	// TODO: переделать длинну порога
 	// Сжимаем данные только если их размер больше 75 байт
+	slog.Debug("Compressing data", slog.Int("data_len", len(data)))
 	if len(data) > 150 {
 		// Получение доступа к пулу
 		pool := gzipCompressorPool()

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -63,10 +64,18 @@ func (api *API) getAllHandler(w http.ResponseWriter, r *http.Request) {
 		return metrics[i].ID < metrics[j].ID
 	})
 
-	// передача ответа клиенту
-	err = tmpl.ExecuteTemplate(w, "metrics", metrics)
+	// Компиляция темплейта
+	var resp bytes.Buffer
+	err = tmpl.ExecuteTemplate(&resp, "metrics", metrics)
 	if err != nil {
 		http.Error(w, "Error whlie executing temaplate", http.StatusInternalServerError)
+		return
+	}
+
+	// Передача ответа клиенту
+	if _, err = w.Write(resp.Bytes()); err != nil {
+		slog.Error("writing response error", "message", err)
+		http.Error(w, fmt.Sprintf("write metric error: %s", err), http.StatusInternalServerError)
 		return
 	}
 }
