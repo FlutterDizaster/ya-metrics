@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -11,60 +12,61 @@ import (
 
 // responseRecorder выступает оберткой над http.ResponseWriter.
 type gzipResponseWriter struct {
-	io.Writer
 	http.ResponseWriter
-	wroteBody bool
 }
 
 // Write переопределение функции http.ResponseWriter.Write([]byte).
 func (w *gzipResponseWriter) Write(data []byte) (int, error) {
-	if w.Header().Get("Content-Type") == "" {
-		w.Header().Set("Content-Type", http.DetectContentType(data))
+	// TODO: переделать длинну порога
+	// Сжимаем данные только если их размер больше 75 байт
+	if len(data) > 150 {
+		// Получение доступа к пулу
+		pool := gzipCompressorPool()
+		// Получение writer'а из пула
+		i := pool.Get()
+		gzip, ok := i.(*gzip.Writer)
+		if !ok {
+			http.Error(
+				w,
+				fmt.Sprintf("error getting gzip writer from pool: %s", i.(error)),
+				http.StatusInternalServerError,
+			)
+			return 0, i.(error)
+		}
+		// Запись сжатых данных в буффер
+		var buf bytes.Buffer
+		gzip.Reset(&buf)
+		_, err := gzip.Write(data)
+		if err != nil {
+			http.Error(
+				w,
+				fmt.Sprintf("error writing data to gzip writer: %s", i.(error)),
+				http.StatusInternalServerError,
+			)
+			return 0, err
+		}
+		// Закрытие и возврат writer'а в пул
+		gzip.Close()
+		pool.Put(gzip)
+		// Установка хедера
+		w.Header().Set("Content-Encoding", "gzip")
+		return w.ResponseWriter.Write(buf.Bytes())
 	}
-	w.wroteBody = true
-
-	w.Header().Set("Content-Encoding", "gzip")
-
-	return w.Writer.Write(data)
+	return w.ResponseWriter.Write(data)
 }
 
 // GzipCompressor является middleware функцией для использования совместно с chi роутером.
 // Сжимает тело ответа, если клиент принимает его в таком виде.
 func GzipCompressor(next http.Handler) http.Handler {
-	pool := gzipCompressorPool()
-
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(rw, r)
 			return
 		}
 
-		i := pool.Get()
-		w, ok := i.(*gzip.Writer)
-		if !ok {
-			http.Error(
-				rw,
-				fmt.Sprintf("error getting gzip writer from pool: %s", i.(error)),
-				http.StatusInternalServerError,
-			)
-			return
-		}
-		w.Reset(rw)
-
 		grw := &gzipResponseWriter{
-			Writer:         w,
 			ResponseWriter: rw,
 		}
-
-		defer func() {
-			if !grw.wroteBody {
-				if grw.Header().Get("Content-Encoding") == "gzip" {
-					grw.Header().Del("Content-Encoding")
-				}
-			}
-			w.Close()
-			pool.Put(w)
-		}()
 
 		next.ServeHTTP(grw, r)
 	})
