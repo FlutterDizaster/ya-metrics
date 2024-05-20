@@ -34,10 +34,17 @@ func (h *Validator) Handle(next http.Handler) http.Handler {
 			key:            h.Key,
 		}
 
-		// Проверка есть ли у запроса тело
+		// Проверка на наличие тела запроса
 		if r.ContentLength <= 0 {
 			r.Body = http.NoBody
 			next.ServeHTTP(hw, r)
+			return
+		}
+
+		// Получение хеша из заголовка запроса
+		sampleHash := r.Header.Get("HashSHA256")
+		if sampleHash == "" {
+			http.Error(w, "HashSHA256 Header required", http.StatusBadRequest)
 			return
 		}
 
@@ -48,15 +55,6 @@ func (h *Validator) Handle(next http.Handler) http.Handler {
 			return
 		}
 		r.Body.Close()
-
-		// Проверка на наличие тела запроса
-
-		// Получение хеша из заголовка запроса
-		sampleHash := r.Header.Get("HashSHA256")
-		if sampleHash == "" {
-			http.Error(w, "HashSHA256 Header required", http.StatusBadRequest)
-			return
-		}
 
 		// Повторное хеширование тела запроса
 		hash := validation.CalculateHashSHA256(body, h.Key)
