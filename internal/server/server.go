@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"net/http"
 	"os"
 	"time"
 
@@ -35,6 +34,7 @@ type Settings struct {
 	FileStoragePath string
 	Restore         bool
 	PGConnString    string
+	Key             string
 }
 
 type Server struct {
@@ -71,15 +71,24 @@ func New(settings Settings) (*Server, error) {
 		slog.Error("error creating storage. forcing exit.", slog.String("error", err.Error()))
 		return nil, err
 	}
+	// Создание списка Middlewares
+	middlewares := []middleware.Middleware{
+		&middleware.Logger{},
+		&middleware.Decompressor{},
+		&middleware.Compressor{
+			MinDataLength: 1,
+		},
+	}
+	if settings.Key != "" {
+		middlewares = append(middlewares, &middleware.Validator{
+			Key: []byte(settings.Key),
+		})
+	}
 	// configure router settings
 	routerSettings := &api.Settings{
-		Addr:    settings.URL,
-		Storage: storage,
-		Middlewares: []func(http.Handler) http.Handler{
-			middleware.Logger,
-			middleware.GzipCompressor,
-			middleware.GzipUncompressor,
-		},
+		Addr:        settings.URL,
+		Storage:     storage,
+		Middlewares: middlewares,
 	}
 	// Создание api сервера
 	apiServer := api.New(routerSettings)

@@ -11,16 +11,21 @@ import (
 	"sync"
 )
 
+type Compressor struct {
+	MinDataLength int
+}
+
 // responseRecorder выступает оберткой над http.ResponseWriter.
 type gzipResponseWriter struct {
 	http.ResponseWriter
+	minDataLength int
 }
 
 // Write переопределение функции http.ResponseWriter.Write([]byte).
 func (w *gzipResponseWriter) Write(data []byte) (int, error) {
 	// TODO: переделать длинну порога
 	// Сжимаем данные только если их размер больше 75 байт
-	if len(data) > 0 {
+	if len(data) > w.minDataLength {
 		// Получение доступа к пулу
 		pool := gzipCompressorPool()
 		// Получение writer'а из пула
@@ -63,7 +68,7 @@ func (w *gzipResponseWriter) Write(data []byte) (int, error) {
 
 // GzipCompressor является middleware функцией для использования совместно с chi роутером.
 // Сжимает тело ответа, если клиент принимает его в таком виде.
-func GzipCompressor(next http.Handler) http.Handler {
+func (c *Compressor) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(rw, r)
@@ -72,6 +77,7 @@ func GzipCompressor(next http.Handler) http.Handler {
 
 		grw := &gzipResponseWriter{
 			ResponseWriter: rw,
+			minDataLength:  c.MinDataLength,
 		}
 
 		next.ServeHTTP(grw, r)

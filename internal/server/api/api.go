@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/sync/errgroup"
@@ -25,7 +26,7 @@ type MetricsStorage interface {
 // Middlewares может иметь значение nil.
 type Settings struct {
 	Storage     MetricsStorage
-	Middlewares []func(http.Handler) http.Handler
+	Middlewares []middleware.Middleware
 	Addr        string
 }
 
@@ -47,8 +48,11 @@ func New(as *Settings) *API {
 
 	r := chi.NewRouter()
 
-	// передача слайса Middleware функций в chi.Mux
-	r.Use(as.Middlewares...)
+	// передача Middleware функций в chi.Mux
+	for i := range as.Middlewares {
+		r.Use(as.Middlewares[i].Handle)
+	}
+	// r.Use(as.Middlewares...)
 
 	// настройка роутинга
 	r.Get("/", api.getAllHandler)
