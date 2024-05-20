@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"encoding/hex"
 	"io"
 	"net/http"
 
@@ -21,7 +22,7 @@ func (w *hashWriter) Write(data []byte) (int, error) {
 	// Подсчет хеша
 	hash := validation.CalculateHashSHA256(data, w.key)
 	// Установка хедера
-	w.Header().Set("HashSHA256", string(hash))
+	w.Header().Set("HashSHA256", hex.EncodeToString(hash))
 	return w.ResponseWriter.Write(data)
 }
 
@@ -35,25 +36,25 @@ func (h *Validator) Handle(next http.Handler) http.Handler {
 
 		// Проверка есть ли у запроса тело
 		if r.ContentLength <= 0 {
-			r.Body = io.NopCloser(nil)
+			r.Body = http.NoBody
 			next.ServeHTTP(hw, r)
-			return
-		}
-
-		// Получение хеша из заголовка запроса
-		var sample []byte
-		if h := r.Header.Get("HashSHA256"); h != "" {
-			sample = []byte(h)
-		} else {
-			http.Error(w, "HashSHA256 Header required", http.StatusBadRequest)
 			return
 		}
 
 		// Чтение тела запроса
 		body, err := io.ReadAll(r.Body)
-		r.Body.Close()
 		if err != nil {
 			http.Error(w, "reading body error", http.StatusInternalServerError)
+			return
+		}
+		r.Body.Close()
+
+		// Проверка на наличие тела запроса
+
+		// Получение хеша из заголовка запроса
+		sampleHash := r.Header.Get("HashSHA256")
+		if sampleHash == "" {
+			http.Error(w, "HashSHA256 Header required", http.StatusBadRequest)
 			return
 		}
 
@@ -61,7 +62,7 @@ func (h *Validator) Handle(next http.Handler) http.Handler {
 		hash := validation.CalculateHashSHA256(body, h.Key)
 
 		// Сравнение хешей
-		if !bytes.Equal(hash, sample) {
+		if !bytes.Equal(hash, []byte(sampleHash)) {
 			http.Error(w, "Invalid Hash", http.StatusBadRequest)
 			return
 		}
