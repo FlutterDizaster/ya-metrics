@@ -16,6 +16,7 @@ func main() {
 	endpoint := flag.String("a", "localhost:8080", "HTTP-server addres. Default \"localhost:8080\"")
 	reportInterval := flag.Int("r", 10, "Report interval in seconds. Default 10 sec")
 	pollInterval := flag.Int("p", 2, "Metrics poll interval. Default 2 sec")
+	key := flag.String("k", "", "Hash key")
 	flag.Parse()
 
 	func() {
@@ -41,7 +42,12 @@ func main() {
 			}
 			pollInterval = &pInterval
 		}
+
+		envKey, ok := os.LookupEnv("KEY")
+		if ok {
+			key = &envKey
+		}
 	}()
 
-	agent.Setup(*endpoint, *reportInterval, *pollInterval)
+	agent.Setup(*endpoint, *reportInterval, *pollInterval, *key)
 }

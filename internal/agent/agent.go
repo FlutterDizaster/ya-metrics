@@ -19,7 +19,7 @@ type Config struct {
 	// TODO: Вынести в отдельный файл и добавить логику загрузки дефолтных значений
 }
 
-func Setup(endpoint string, reportInterval int, pollInterval int) {
+func Setup(endpoint string, reportInterval int, pollInterval int, key string) {
 	// TODO: вынести в конфиг
 	var (
 		retryCount       = 3
@@ -27,36 +27,6 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 		retryMaxWaitTime = 5 * time.Second
 		gracefullPeriod  = 20 * time.Second
 	)
-
-	customMetricsList := []view.Metric{
-		{ID: "Alloc", MType: "gauge", Source: view.MemStats},
-		{ID: "BuckHashSys", MType: "gauge", Source: view.MemStats},
-		{ID: "Frees", MType: "gauge", Source: view.MemStats},
-		{ID: "GCCPUFraction", MType: "gauge", Source: view.MemStats},
-		{ID: "GCSys", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapAlloc", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapIdle", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapInuse", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapObjects", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapReleased", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapSys", MType: "gauge", Source: view.MemStats},
-		{ID: "LastGC", MType: "gauge", Source: view.MemStats},
-		{ID: "Lookups", MType: "gauge", Source: view.MemStats},
-		{ID: "MCacheInuse", MType: "gauge", Source: view.MemStats},
-		{ID: "MCacheSys", MType: "gauge", Source: view.MemStats},
-		{ID: "MSpanInuse", MType: "gauge", Source: view.MemStats},
-		{ID: "MSpanSys", MType: "gauge", Source: view.MemStats},
-		{ID: "Mallocs", MType: "gauge", Source: view.MemStats},
-		{ID: "NextGC", MType: "gauge", Source: view.MemStats},
-		{ID: "NumForcedGC", MType: "gauge", Source: view.MemStats},
-		{ID: "NumGC", MType: "gauge", Source: view.MemStats},
-		{ID: "OtherSys", MType: "gauge", Source: view.MemStats},
-		{ID: "PauseTotalNs", MType: "gauge", Source: view.MemStats},
-		{ID: "StackInuse", MType: "gauge", Source: view.MemStats},
-		{ID: "StackSys", MType: "gauge", Source: view.MemStats},
-		{ID: "Sys", MType: "gauge", Source: view.MemStats},
-		{ID: "TotalAlloc", MType: "gauge", Source: view.MemStats},
-	}
 
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),
@@ -73,11 +43,12 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 		RetryCount:       retryCount,
 		RetryInterval:    retryInterval,
 		RetryMaxWaitTime: retryMaxWaitTime,
+		Key:              key,
 	}
 
 	sender := sender.NewSender(senderSettings)
 
-	collector := telemetry.NewMetricCollector(customMetricsList)
+	collector := telemetry.NewMetricCollector(getCustomMetricsList())
 
 	workerSettings := &worker.Settings{
 		Collector:      collector,
@@ -125,4 +96,36 @@ func Setup(endpoint string, reportInterval int, pollInterval int) {
 	workerCancleCtx()
 
 	wg.Wait()
+}
+
+func getCustomMetricsList() []view.Metric {
+	return []view.Metric{
+		{ID: "Alloc", MType: "gauge", Source: view.MemStats},
+		{ID: "BuckHashSys", MType: "gauge", Source: view.MemStats},
+		{ID: "Frees", MType: "gauge", Source: view.MemStats},
+		{ID: "GCCPUFraction", MType: "gauge", Source: view.MemStats},
+		{ID: "GCSys", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapAlloc", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapIdle", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapInuse", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapObjects", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapReleased", MType: "gauge", Source: view.MemStats},
+		{ID: "HeapSys", MType: "gauge", Source: view.MemStats},
+		{ID: "LastGC", MType: "gauge", Source: view.MemStats},
+		{ID: "Lookups", MType: "gauge", Source: view.MemStats},
+		{ID: "MCacheInuse", MType: "gauge", Source: view.MemStats},
+		{ID: "MCacheSys", MType: "gauge", Source: view.MemStats},
+		{ID: "MSpanInuse", MType: "gauge", Source: view.MemStats},
+		{ID: "MSpanSys", MType: "gauge", Source: view.MemStats},
+		{ID: "Mallocs", MType: "gauge", Source: view.MemStats},
+		{ID: "NextGC", MType: "gauge", Source: view.MemStats},
+		{ID: "NumForcedGC", MType: "gauge", Source: view.MemStats},
+		{ID: "NumGC", MType: "gauge", Source: view.MemStats},
+		{ID: "OtherSys", MType: "gauge", Source: view.MemStats},
+		{ID: "PauseTotalNs", MType: "gauge", Source: view.MemStats},
+		{ID: "StackInuse", MType: "gauge", Source: view.MemStats},
+		{ID: "StackSys", MType: "gauge", Source: view.MemStats},
+		{ID: "Sys", MType: "gauge", Source: view.MemStats},
+		{ID: "TotalAlloc", MType: "gauge", Source: view.MemStats},
+	}
 }

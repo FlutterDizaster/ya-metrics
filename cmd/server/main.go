@@ -95,6 +95,13 @@ func parseConfig() server.Settings {
 		defaultStoreInterval,
 		"Time between backups in seconds. Default 300",
 	)
+	flag.StringVarP(
+		&settings.Key,
+		"key",
+		"k",
+		"",
+		"Hash key",
+	)
 
 	flag.Parse()
 
@@ -121,6 +128,10 @@ func lookupEnvs(settings server.Settings) server.Settings {
 	envStoreInterval, ok := lookupIntEnv("STORE_INTERVAL")
 	if ok {
 		settings.StoreInterval = envStoreInterval
+	}
+	envHashKey, ok := os.LookupEnv("KEY")
+	if ok {
+		settings.Key = envHashKey
 	}
 
 	return settings

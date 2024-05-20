@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/FlutterDizaster/ya-metrics/pkg/validation"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -19,12 +21,14 @@ type Settings struct {
 	RetryCount       int
 	RetryInterval    time.Duration
 	RetryMaxWaitTime time.Duration
+	Key              string
 }
 
 type Sender struct {
 	metricsBuffer []view.Metric
 	endpointAddr  string
 	client        *resty.Client
+	key           string
 }
 
 func NewSender(settings *Settings) *Sender {
@@ -58,6 +62,12 @@ func (s *Sender) sendBatch(ctx context.Context, metrics view.Metrics) {
 	req := s.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetContext(ctx)
+
+	// Подсчет хеша при необходимости
+	if s.key != "" {
+		hash := validation.CalculateHashSHA256(metricsBytes, []byte(s.key))
+		req.SetHeader("HashSHA256", hex.EncodeToString(hash))
+	}
 
 	// Сжатие метрики
 	data, err := compressData(metricsBytes)
