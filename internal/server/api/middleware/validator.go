@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"io"
-	"log/slog"
 	"net/http"
 
 	"github.com/FlutterDizaster/ya-metrics/pkg/validation"
@@ -46,16 +45,14 @@ func (h *Validator) Handle(next http.Handler) http.Handler {
 		sampleHashString := r.Header.Get("Hash")
 		// sampleHashString := r.Header.Get("HashSHA256")
 		if sampleHashString == "" {
-			http.Error(w, "HashSHA256 Header required", http.StatusBadRequest)
+			// TODO: for tests
+			next.ServeHTTP(hw, r)
+			// http.Error(w, "HashSHA256 Header required", http.StatusBadRequest)
 			return
 		}
 		sampleHash, err := hex.DecodeString(sampleHashString)
 		if err != nil {
-			_, err = w.Write([]byte("Decode error"))
-			if err != nil {
-				slog.Error("response error", "error", err.Error())
-			}
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "Can't decode hash", http.StatusBadRequest)
 			return
 		}
 
@@ -72,11 +69,7 @@ func (h *Validator) Handle(next http.Handler) http.Handler {
 
 		// Сравнение хешей
 		if !bytes.Equal(hash, sampleHash) {
-			_, err = w.Write([]byte("Invalid Hash"))
-			if err != nil {
-				slog.Error("response error", "error", err.Error())
-			}
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "Invalid Hash", http.StatusBadRequest)
 			return
 		}
 

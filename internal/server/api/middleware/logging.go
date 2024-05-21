@@ -67,12 +67,14 @@ func (l *Logger) Handle(next http.Handler) http.Handler {
 			slog.String("url", r.RequestURI),
 			slog.String("accept-encoding", r.Header.Get("Accept-Encoding")),
 			slog.String("content-encoding", r.Header.Get("Content-Encoding")),
+			slog.String("content-type", r.Header.Get("Content-Type")),
 			slog.Int64("time_taken_ms", deltaTime.Milliseconds()),
 			slog.Group(
 				"response",
 				slog.Int("status", rec.responseData.statusCode),
 				slog.Int("body_length", rec.responseData.dataSize),
 				slog.String("content-encoding", w.Header().Get("Content-Encoding")),
+				slog.String("content-type", w.Header().Get("Content-Type")),
 			),
 		)
 	})
