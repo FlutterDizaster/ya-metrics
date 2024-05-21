@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/FlutterDizaster/ya-metrics/pkg/validation"
@@ -42,9 +43,18 @@ func (h *Validator) Handle(next http.Handler) http.Handler {
 		}
 
 		// Получение хеша из заголовка запроса
-		sampleHash := r.Header.Get("HashSHA256")
-		if sampleHash == "" {
+		sampleHashString := r.Header.Get("HashSHA256")
+		if sampleHashString == "" {
 			http.Error(w, "HashSHA256 Header required", http.StatusBadRequest)
+			return
+		}
+		sampleHash, err := hex.DecodeString(sampleHashString)
+		if err != nil {
+			_, err = w.Write([]byte("Decode error"))
+			if err != nil {
+				slog.Error("response error", "error", err.Error())
+			}
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -60,8 +70,12 @@ func (h *Validator) Handle(next http.Handler) http.Handler {
 		hash := validation.CalculateHashSHA256(body, h.Key)
 
 		// Сравнение хешей
-		if !bytes.Equal(hash, []byte(sampleHash)) {
-			http.Error(w, "Invalid Hash", http.StatusBadRequest)
+		if !bytes.Equal(hash, sampleHash) {
+			_, err = w.Write([]byte("Invalid Hash"))
+			if err != nil {
+				slog.Error("response error", "error", err.Error())
+			}
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 

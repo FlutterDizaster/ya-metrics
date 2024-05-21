@@ -37,6 +37,7 @@ func NewSender(settings *Settings) *Sender {
 		metricsBuffer: make([]view.Metric, 0),
 		endpointAddr:  fmt.Sprintf("http://%s/updates/", settings.Addr),
 		client:        resty.New(),
+		key:           settings.Key,
 	}
 	sender.client.SetRetryCount(settings.RetryCount)
 	sender.client.SetRetryWaitTime(settings.RetryInterval)
@@ -65,6 +66,7 @@ func (s *Sender) sendBatch(ctx context.Context, metrics view.Metrics) {
 
 	// Подсчет хеша при необходимости
 	if s.key != "" {
+		slog.Debug("Calculating hash")
 		hash := validation.CalculateHashSHA256(metricsBytes, []byte(s.key))
 		req.SetHeader("HashSHA256", hex.EncodeToString(hash))
 	}

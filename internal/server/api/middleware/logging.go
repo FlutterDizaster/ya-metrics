@@ -72,6 +72,7 @@ func (l *Logger) Handle(next http.Handler) http.Handler {
 				"response",
 				slog.Int("status", rec.responseData.statusCode),
 				slog.Int("body_length", rec.responseData.dataSize),
+				slog.String("content-encoding", w.Header().Get("Content-Encoding")),
 			),
 		)
 	})

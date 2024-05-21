@@ -1,6 +1,8 @@
 package validation
 
-import "crypto/sha256"
+import (
+	"crypto/sha256"
+)
 
 func CalculateHashSHA256(content, key []byte) []byte {
 	content = append(content, key...)
