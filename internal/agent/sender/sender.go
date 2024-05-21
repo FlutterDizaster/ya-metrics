@@ -68,8 +68,7 @@ func (s *Sender) sendBatch(ctx context.Context, metrics view.Metrics) {
 	if s.key != "" {
 		slog.Debug("Calculating hash")
 		hash := validation.CalculateHashSHA256(metricsBytes, []byte(s.key))
-		// req.SetHeader("HashSHA256", hex.EncodeToString(hash))
-		req.SetHeader("Hash", hex.EncodeToString(hash))
+		req.SetHeader("HashSHA256", hex.EncodeToString(hash))
 	}
 
 	// Сжатие метрики
