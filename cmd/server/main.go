@@ -14,14 +14,6 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
-const (
-	defaultEndpoint        = "localhost:8080"
-	defaultStoreInterval   = 300
-	defaultFileStoragePath = "/tmp/metrics-db.json"
-	defaultRestore         = true
-	defaultPGConnString    = ""
-)
-
 func main() {
 	os.Exit(mainReturnWithCode())
 }
@@ -51,7 +43,7 @@ func mainReturnWithCode() int {
 
 	// Запуск сервера
 	if err = srv.Start(ctx); err != nil {
-		slog.Error("Server startuo error", slog.String("error", err.Error()))
+		slog.Error("Server startup error", slog.String("error", err.Error()))
 		return 1
 	}
 
@@ -59,6 +51,13 @@ func mainReturnWithCode() int {
 }
 
 func parseConfig() server.Settings {
+	const (
+		defaultEndpoint        = "localhost:8080"
+		defaultStoreInterval   = 300
+		defaultFileStoragePath = "/tmp/metrics-db.json"
+		defaultRestore         = true
+		defaultPGConnString    = ""
+	)
 	var settings server.Settings
 	flag.StringVarP(
 		&settings.URL,
