@@ -15,27 +15,23 @@ type ErrGo struct {
 }
 
 // Wait() ожидает закрытия горутин запущенных функцие Go() или возврата первой ошибки.
-// Возвращает канал с ошибкой.
-func (eg *ErrGo) Wait() <-chan error {
+func (eg *ErrGo) Wait() error {
 	wgWaiter := make(chan any)
-	resultCh := make(chan error, 1)
 
+	defer close(wgWaiter)
 	defer close(eg.errCh)
 
 	go func() {
-		defer close(wgWaiter)
 		eg.wg.Wait()
 		wgWaiter <- struct{}{}
 	}()
 
 	select {
 	case <-wgWaiter:
-		resultCh <- nil
+		return nil
 	case err := <-eg.errCh:
-		resultCh <- err
+		return err
 	}
-
-	return resultCh
 }
 
 // Go() запускает горутину.
