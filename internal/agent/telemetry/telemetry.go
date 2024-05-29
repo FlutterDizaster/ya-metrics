@@ -8,12 +8,13 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 )
-
-//TODO: Реализовать Telemetry
 
 type Buffer interface {
 	Put([]view.Metric) error
@@ -28,7 +29,6 @@ type Settings struct {
 type Telemetry struct {
 	pollInterval time.Duration
 	buf          Buffer
-	metrics      []view.Metric
 	rnd          rand.Rand
 }
 
@@ -65,23 +65,60 @@ func (t *Telemetry) Start(ctx context.Context) error {
 
 func (t *Telemetry) collectAndSave() {
 	slog.Debug("Telemetry", slog.String("status", "collecting..."))
-	// Очистка внутреннего буфера
-	t.metrics = make([]view.Metric, 0)
+	// Создание буфера
+	metrics := make([]view.Metric, 0)
 
 	// Получение PollCount
-	t.saveMetric(view.KindCounter, "PollCount", "1")
+	metric, err := view.NewMetric(view.KindCounter, "PollCount", "1")
+	if err != nil {
+		slog.Error(
+			"metric not created error",
+			slog.String("metric", "PollCount"),
+			slog.Any("error", err),
+		)
+	} else {
+		metrics = append(metrics, *metric)
+	}
 
 	// Получение RandomValue
 	rvalue := strconv.FormatFloat(t.rnd.Float64(), 'f', -1, 64)
-	t.saveMetric(view.KindGauge, "RandomValue", rvalue)
+	metric, err = view.NewMetric(view.KindGauge, "RandomValue", rvalue)
+	if err != nil {
+		slog.Error(
+			"metric not created error",
+			slog.String("metric", "RandomValue"),
+			slog.Any("error", err),
+		)
+	} else {
+		metrics = append(metrics, *metric)
+	}
+
+	wg := sync.WaitGroup{}
 
 	// Получение метрик MemStats
-	t.collectMemStats()
+	var memStats []view.Metric
+	wg.Add(1)
+	go func() {
+		memStats = t.collectMemStats()
+		wg.Done()
+	}()
 
-	// TODO: Получение метрик из других источников
+	// Получение метрик PCMetrics
+	var pcStats []view.Metric
+	wg.Add(1)
+	go func() {
+		pcStats = t.collectPCStats()
+		wg.Done()
+	}()
+
+	// Ожидание конца сбора метрик
+	wg.Wait()
+
+	metrics = append(metrics, pcStats...)
+	metrics = append(metrics, memStats...)
 
 	// Отправка метрик в буффер приложения
-	err := t.buf.Put(t.metrics)
+	err = t.buf.Put(metrics)
 	if err != nil {
 		slog.Error("Telemetry", "error", err)
 		return
@@ -90,18 +127,70 @@ func (t *Telemetry) collectAndSave() {
 	slog.Debug("Telemetry", slog.String("status", "collected"))
 }
 
-func (t *Telemetry) saveMetric(kind string, name string, value string) {
-	// создание метрики
-	metric, err := view.NewMetric(kind, name, value)
+func (t *Telemetry) collectPCStats() view.Metrics {
+	metrics := make([]view.Metric, 0)
+
+	// Получение статистики памяти
+	vmStats, err := mem.VirtualMemory()
 	if err != nil {
-		slog.Error("%s metric not created: %s", name, err)
-		return
+		slog.Error("error reading VirtualMempry stats", "error", err)
 	}
-	// добавление метрики в буффер
-	t.metrics = append(t.metrics, *metric)
+	// Сохранение TotalMemory
+	metric, err := view.NewMetric(
+		view.KindGauge,
+		"TotalMemory",
+		strconv.FormatUint(vmStats.Total, 10),
+	)
+	if err != nil {
+		slog.Error(
+			"metric not created error",
+			slog.String("metric", "PollCount"),
+			slog.Any("error", err),
+		)
+	} else {
+		metrics = append(metrics, *metric)
+	}
+
+	// Сохранение FreeMemory
+	metric, err = view.NewMetric(view.KindGauge, "FreeMemory", strconv.FormatUint(vmStats.Free, 10))
+	if err != nil {
+		slog.Error(
+			"metric not created error",
+			slog.String("metric", "PollCount"),
+			slog.Any("error", err),
+		)
+	} else {
+		metrics = append(metrics, *metric)
+	}
+
+	utilization, err := cpu.Percent(0, true)
+	if err != nil {
+		slog.Error("error reading CPU stats", "error", err)
+	}
+
+	for i := range utilization {
+		name := fmt.Sprintf("CPUutilization%d", i)
+		metric, err = view.NewMetric(
+			view.KindGauge,
+			name,
+			strconv.FormatFloat(utilization[i], 'f', -1, 64),
+		)
+		if err != nil {
+			slog.Error(
+				"metric not created error",
+				slog.String("metric", name),
+				slog.Any("error", err),
+			)
+		} else {
+			metrics = append(metrics, *metric)
+		}
+	}
+
+	return metrics
 }
 
-func (t *Telemetry) collectMemStats() {
+func (t *Telemetry) collectMemStats() view.Metrics {
+	// Список интересующих метрик
 	memStatsMetrics := []view.Metric{
 		{ID: "Alloc", MType: "gauge"},
 		{ID: "BuckHashSys", MType: "gauge"},
@@ -132,18 +221,37 @@ func (t *Telemetry) collectMemStats() {
 		{ID: "TotalAlloc", MType: "gauge"},
 	}
 
+	metrics := make([]view.Metric, 0, len(memStatsMetrics))
+
+	// Получение метрик MemStats
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
+	// Парсинг метрик
 	for i := range memStatsMetrics {
 		field := reflect.ValueOf(memStats).FieldByName((memStatsMetrics[i].ID))
+
+		// Если такое поле существует, получаем его данные
 		if field.IsValid() {
-			t.saveMetric(
+			// Создание метрики
+			metric, err := view.NewMetric(
 				memStatsMetrics[i].MType,
 				memStatsMetrics[i].ID,
 				fmt.Sprintf("%v", field.Interface()),
 			)
+			// если ошибка, то логирование
+			if err != nil {
+				slog.Error(
+					"metric not created error",
+					slog.String("metric", memStatsMetrics[i].ID),
+					slog.Any("error", err),
+				)
+			} else {
+				// Есди ощибки нет, то добавляем метрику к слайсу
+				metrics = append(metrics, *metric)
+			}
 		} else {
+			// Если поля нет, логируем
 			slog.Info(
 				"Telemetry",
 				slog.String("message", "skip collecting metric"),
@@ -151,4 +259,6 @@ func (t *Telemetry) collectMemStats() {
 			)
 		}
 	}
+
+	return metrics
 }

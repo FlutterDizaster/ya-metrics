@@ -23,6 +23,7 @@ type Settings struct {
 	RetryMaxWaitTime int
 	ReportInterval   int
 	PollInterval     int
+	RateLimit        int
 	// GracefullPeriod  time.Duration
 }
 
@@ -51,6 +52,7 @@ func New(settings Settings) (*Agent, error) {
 		ReportInterval:   time.Duration(settings.ReportInterval) * time.Second,
 		Key:              settings.HashKey,
 		Buf:              buf,
+		RateLimit:        settings.RateLimit,
 	}
 	snd := sender.New(senderSettings)
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/FlutterDizaster/ya-metrics/pkg/validation"
+	"github.com/FlutterDizaster/ya-metrics/pkg/workerpool"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -28,6 +29,7 @@ type Settings struct {
 	ReportInterval   time.Duration
 	Key              string
 	Buf              Buffer
+	RateLimit        int
 }
 
 type Sender struct {
@@ -36,6 +38,7 @@ type Sender struct {
 	reportInterval time.Duration
 	key            string
 	buf            Buffer
+	wpool          workerpool.WorkerPool
 }
 
 func New(settings Settings) *Sender {
@@ -46,6 +49,7 @@ func New(settings Settings) *Sender {
 		reportInterval: settings.ReportInterval,
 		key:            settings.Key,
 		buf:            settings.Buf,
+		wpool:          *workerpool.New(settings.RateLimit),
 	}
 	sender.client.SetRetryCount(settings.RetryCount)
 	sender.client.SetRetryWaitTime(settings.RetryInterval)
@@ -56,6 +60,7 @@ func New(settings Settings) *Sender {
 func (s *Sender) Start(ctx context.Context) error {
 	slog.Debug("Sender", slog.String("status", "start"))
 	ticker := time.NewTicker(s.reportInterval)
+	slog.Info("Sender started", "report interval", s.reportInterval)
 
 	// Первая отправка метрик
 	s.send(ctx)
@@ -68,6 +73,7 @@ func (s *Sender) Start(ctx context.Context) error {
 			lastCtx, lastCancleCtx := context.WithTimeout(context.Background(), 3*time.Second)
 			defer lastCancleCtx()
 			s.send(lastCtx)
+			s.wpool.Close()
 			slog.Debug("Sender", slog.String("status", "stop"))
 			return nil
 		case <-ticker.C:
@@ -115,15 +121,20 @@ func (s *Sender) send(ctx context.Context) {
 	}
 
 	// Отправка запроса
-	resp, err := req.Post(s.endpointAddr)
+	err = s.wpool.Do(func() {
+		resp, errr := req.Post(s.endpointAddr)
+		if errr != nil {
+			slog.Info("Sender", "error", errr)
+		} else {
+			slog.Info(
+				"Sender",
+				slog.String("status", "sended"),
+				slog.Int("response_code", resp.StatusCode()),
+			)
+		}
+	})
 	if err != nil {
-		slog.Info("Sender", "error", err)
-	} else {
-		slog.Info(
-			"Sender",
-			slog.String("status", "sended"),
-			slog.Int("response_code", resp.StatusCode()),
-		)
+		slog.Error("unexpected sender error", "error", err)
 	}
 }
 

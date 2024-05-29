@@ -53,15 +53,16 @@ func mainReturnWithCode() int {
 
 func parseConfig() agent.Settings {
 	const (
-		defaultServerAddr     = "localhost:8080"
-		defaultHashKey        = ""
-		defaultRetryCount     = 3
-		defaultRetryInterval  = 1
-		defaultRetryMaxWait   = 9
-		defaultReportInterval = 10
-		defaultPollInterval   = 2
+		defaultServerAddr         = "localhost:8080"
+		defaultHashKey            = ""
+		defaultRetryCount     int = 3
+		defaultRetryInterval  int = 1
+		defaultRetryMaxWait   int = 9
+		defaultReportInterval int = 10
+		defaultPollInterval   int = 2
+		defaultRateLimit      int = 1
 	)
-	var settings agent.Settings
+	settings := agent.Settings{}
 
 	flag.StringVarP(
 		&settings.ServerAddr,
@@ -91,11 +92,17 @@ func parseConfig() agent.Settings {
 		defaultPollInterval,
 		"Metrics poll interval. Default 2 sec",
 	)
+	flag.IntVarP(
+		&settings.RateLimit,
+		"rate-limit",
+		"l",
+		defaultRateLimit,
+		"Rate limit. Default 1",
+	)
 
 	flag.Parse()
-
 	settings.RetryCount = defaultRetryCount
-	settings.ReportInterval = defaultRetryInterval
+	settings.RetryInterval = defaultRetryInterval
 	settings.RetryMaxWaitTime = defaultRetryMaxWait
 
 	return lookupEnvs(settings)
@@ -117,6 +124,10 @@ func lookupEnvs(settings agent.Settings) agent.Settings {
 	envPollInterval, ok := lookupIntEnv("POLL_INTERVAL")
 	if ok {
 		settings.PollInterval = envPollInterval
+	}
+	envRateLimit, ok := lookupIntEnv("RATE_LIMIT")
+	if ok {
+		settings.RateLimit = envRateLimit
 	}
 
 	return settings
