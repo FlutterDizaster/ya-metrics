@@ -56,14 +56,8 @@ func New(settings Settings) (*Agent, error) {
 
 	// Создание агента и регистрация сервисов
 	agent := &Agent{}
-	err := agent.RegisterService(tlm)
-	if err != nil {
-		return nil, err
-	}
-	err = agent.RegisterService(snd)
-	if err != nil {
-		return nil, err
-	}
+	agent.RegisterService(tlm)
+	agent.RegisterService(snd)
 
 	slog.Debug("Agent instance created")
 	return agent, nil

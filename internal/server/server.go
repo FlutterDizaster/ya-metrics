@@ -88,14 +88,8 @@ func New(settings Settings) (*Server, error) {
 
 	server := &Server{}
 
-	err = server.RegisterService(storage)
-	if err != nil {
-		return nil, err
-	}
-	err = server.RegisterService(apiServer)
-	if err != nil {
-		return nil, err
-	}
+	server.RegisterService(storage)
+	server.RegisterService(apiServer)
 
 	slog.Debug("Application instance created", slog.String("storage mode", storageMode))
 	return server, nil
