@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
@@ -182,6 +183,7 @@ func (ms *MetricStorage) ReadAllMetrics() ([]view.Metric, error) {
 }
 
 func (ms *MetricStorage) checkAndCreateTable() error {
+	slog.Debug("Creating table")
 	ctx, cancle := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancle()
 	_, err := ms.db.Exec(ctx, queryCheckAndCreateDB)

@@ -144,7 +144,7 @@ func (t *Telemetry) collectPCStats() view.Metrics {
 	if err != nil {
 		slog.Error(
 			"metric not created error",
-			slog.String("metric", "PollCount"),
+			slog.String("metric", "TotalMemory"),
 			slog.Any("error", err),
 		)
 	} else {
@@ -152,11 +152,31 @@ func (t *Telemetry) collectPCStats() view.Metrics {
 	}
 
 	// Сохранение FreeMemory
-	metric, err = view.NewMetric(view.KindGauge, "FreeMemory", strconv.FormatUint(vmStats.Free, 10))
+	metric, err = view.NewMetric(
+		view.KindGauge,
+		"FreeMemory",
+		strconv.FormatUint(vmStats.Free, 10),
+	)
 	if err != nil {
 		slog.Error(
 			"metric not created error",
-			slog.String("metric", "PollCount"),
+			slog.String("metric", "FreeMemory"),
+			slog.Any("error", err),
+		)
+	} else {
+		metrics = append(metrics, *metric)
+	}
+
+	// Сохранение UsedMemory
+	metric, err = view.NewMetric(
+		view.KindGauge,
+		"UsedMemory",
+		strconv.FormatUint(vmStats.Used, 10),
+	)
+	if err != nil {
+		slog.Error(
+			"metric not created error",
+			slog.String("metric", "UsedMemory"),
 			slog.Any("error", err),
 		)
 	} else {

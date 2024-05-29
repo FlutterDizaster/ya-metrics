@@ -17,15 +17,10 @@ const (
 		delta = CASE WHEN EXCLUDED.mtype = 'counter' THEN metrics.delta + EXCLUDED.delta ELSE EXCLUDED.delta END
 	RETURNING value, delta;`
 	// Запрос для проверки существования таблицы и её создания при необходимости.
-	queryCheckAndCreateDB = `DO $$
-	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'metrics') THEN
-			CREATE TABLE metrics (
-				id VARCHAR(255) UNIQUE,
-				mtype VARCHAR(255),
-				value DOUBLE PRECISION,
-				delta BIGINT
-			);
-		END IF;
-	END $$;`
+	queryCheckAndCreateDB = `CREATE TABLE IF NOT EXISTS metrics (
+		id VARCHAR(255) UNIQUE,
+		mtype VARCHAR(255),
+		value DOUBLE PRECISION,
+		delta BIGINT
+	);`
 )
