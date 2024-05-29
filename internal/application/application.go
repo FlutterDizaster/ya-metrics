@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"golang.org/x/sync/errgroup"
+	"github.com/FlutterDizaster/ya-metrics/pkg/errgo"
 )
 
 type Service interface {
@@ -31,7 +31,7 @@ func (a *Application) Start(ctx context.Context) error {
 		return errors.New("no registered services")
 	}
 
-	eg := errgroup.Group{}
+	eg := errgo.ErrGo{}
 	// Слайс функция закрытия контекстов
 	stops := make([]func(), len(a.services))
 	// Спавним сервисы
@@ -49,28 +49,36 @@ func (a *Application) Start(ctx context.Context) error {
 	}
 	// Ждем завершения контекста
 	// TODO: Запустить в отдельной горутине. Мешает распространению ошибки во время запуска
-	<-ctx.Done()
-	slog.Info("Shutdown...")
-	defer slog.Info("All services stopped")
-	// Запускаем gracefull keeper
-	// Завершает выполнение программы через 30 секунд, если программа не завершится сама
-	forceCtx, forceStopCtx := context.WithTimeout(
-		context.Background(),
-		30*time.Second, // TODO: Вынести в конфиг
-	)
-	defer forceStopCtx()
-	go func() {
-		<-forceCtx.Done()
-		if forceCtx.Err() == context.DeadlineExceeded {
-			slog.Error("shutdown timed out... forcing exit.")
-			os.Exit(1)
+	var err error
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("Shutdown...")
+			defer slog.Info("All services stopped")
+			// Запускаем gracefull keeper
+			// Завершает выполнение программы через 30 секунд, если программа не завершится сама
+			forceCtx, forceStopCtx := context.WithTimeout(
+				context.Background(),
+				30*time.Second, // TODO: Вынести в конфиг
+			)
+			defer forceStopCtx()
+			go func() {
+				<-forceCtx.Done()
+				if forceCtx.Err() == context.DeadlineExceeded {
+					slog.Error("shutdown timed out... forcing exit.")
+					os.Exit(1)
+				}
+			}()
+			// Закрытие контекстов сервисов в порядке создания
+			for i := range stops {
+				// TODO: Ожидать закрытия каждого сервиса
+				stops[i]()
+			}
+		case err = <-eg.Wait():
+			break loop
 		}
-	}()
-	// Закрытие контекстов сервисов в порядке создания
-	for i := range stops {
-		// TODO: Ожидать закрытия каждого сервиса
-		stops[i]()
 	}
 	// Ожидание остановки сервисов
-	return eg.Wait()
+	return err
 }

@@ -8,8 +8,8 @@ import (
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/FlutterDizaster/ya-metrics/pkg/errgo"
 	"github.com/go-chi/chi/v5"
-	"golang.org/x/sync/errgroup"
 )
 
 // Интерфейс взаимодействия с репозиторием метрик.
@@ -87,7 +87,8 @@ func New(as *Settings) *API {
 func (api *API) Start(ctx context.Context) error {
 	slog.Info("Starting API service")
 	defer slog.Info("API server succesfully stopped")
-	eg := errgroup.Group{}
+
+	eg := errgo.ErrGo{}
 
 	eg.Go(func() error {
 		slog.Info("Listening...")
@@ -98,11 +99,20 @@ func (api *API) Start(ctx context.Context) error {
 		return nil
 	})
 
-	<-ctx.Done()
-	eg.Go(func() error {
-		slog.Info("Shutingdown API service")
-		return api.server.Shutdown(context.TODO())
-	})
+	var err error
 
-	return eg.Wait()
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			eg.Go(func() error {
+				slog.Info("Shutingdown API service")
+				return api.server.Shutdown(context.TODO())
+			})
+		case err = <-eg.Wait():
+			break loop
+		}
+	}
+
+	return err
 }
