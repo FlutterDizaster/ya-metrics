@@ -4,122 +4,73 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sync"
+	"os"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
-// Service определяет интерфейс для сущностей сервисов, работающих конкурентно во время
-// во время исполнения программы.
 type Service interface {
 	Start(context.Context) error
 }
 
-// Application используется для управления дизненным циклом сервисов.
 type Application struct {
 	services []Service
-	sk       *ServiceKeeper
 }
 
-// RegisterService(service Service) добавляет сервисы в список к запуску.
-func (a *Application) RegisterService(service Service) {
+// TODO: Добавыть выброс ошибки, если инициализация уже пройдена
+func (a *Application) RegisterService(service Service) error {
 	a.services = append(a.services, service)
+	return nil
 }
 
-// Start(ctx context.Context) Запускает все зарегистрированные сервисы и завершает их при закрытии контекста.
 func (a *Application) Start(ctx context.Context) error {
-	slog.Debug("Starting services...")
-	if len(a.services) == 0 {
-		return errors.New("no services registered")
+	slog.Debug("Starting services")
+	// Если сервисов нет, то и запускать нечего
+	if a.services == nil {
+		return errors.New("no registered services")
 	}
 
-	// Создание ServiceKeeper
-	a.sk = NewServiceKeeper()
-
-	// Создание fanIn контекста
-	fanCtx, fanClancleCtx := context.WithCancel(context.Background())
-	// Запуск сервисов
-	errCh := fanIn(fanCtx, a.startServices()...)
-
-	// Ожидание закрытия контекста или ошибки из сервисов
-	var err error
-
-	select {
-	case <-ctx.Done():
-		err = a.stopServices() // Сохраняем ошибку для возврата
-
-	case err = <-errCh: // Сохраняем ошибку для возврата
-		slog.Error("service error found. exiting...")
-		_ = a.stopServices() // Пропускаем сохранение ошибки
-	}
-
-	fanClancleCtx()
-
-	return err
-}
-
-// Хелпер функция для запуска сервисов.
-func (a *Application) startServices() []<-chan error {
-	// Слайс каналов с ошибками
-	errChans := make([]<-chan error, 0, len(a.services))
-
-	// Запуск сервисов
+	eg := errgroup.Group{}
+	// Слайс функция закрытия контекстов
+	stops := make([]func(), len(a.services))
+	// Спавним сервисы
 	for i := range a.services {
-		errChans = append(errChans, a.sk.Start(a.services[i]))
+		// Создание контекста для остановки сервиса
+		shutdownCtx, shutdownStopCtx := context.WithCancel(context.Background())
+		stops[i] = shutdownStopCtx
+
+		// Запуск сервиса
+		func(index int) {
+			eg.Go(func() error {
+				return a.services[index].Start(shutdownCtx)
+			})
+		}(i)
 	}
-
-	return errChans
-}
-
-// Хелпер функция для остановки сервисов.
-func (a *Application) stopServices() error {
-	var err error
-
-	for i := range a.services {
-		err = a.sk.Stop(a.services[i])
-	}
-
-	return err
-}
-
-// fanIn объединяет несколько каналов resultChs в один.
-func fanIn(ctx context.Context, resultChs ...<-chan error) <-chan error {
-	// конечный выходной канал в который отправляем данные из всех каналов из слайса, назовём его результирующим
-	finalCh := make(chan error)
-
-	// понадобится для ожидания всех горутин
-	wg := sync.WaitGroup{}
-
-	// перебираем все входящие каналы
-	for _, ch := range resultChs {
-		// в горутину передавать переменную цикла нельзя, поэтому делаем так
-		chClosure := ch
-
-		// инкрементируем счётчик горутин, которые нужно подождать
-		wg.Add(1)
-
-		go func() {
-			// откладываем сообщение о том, что горутина завершилась
-			defer wg.Done()
-
-			// получаем данные из канала
-			for data := range chClosure {
-				select {
-				// выходим из горутины, если канал закрылся
-				case <-ctx.Done():
-					return
-				// если не закрылся, отправляем данные в конечный выходной канал
-				case finalCh <- data:
-				}
-			}
-		}()
-	}
-
+	// Ждем завершения контекста
+	// TODO: Запустить в отдельной горутине. Мешает распространению ошибки во время запуска
+	<-ctx.Done()
+	slog.Info("Shutdown...")
+	defer slog.Info("All services stopped")
+	// Запускаем gracefull keeper
+	// Завершает выполнение программы через 30 секунд, если программа не завершится сама
+	forceCtx, forceStopCtx := context.WithTimeout(
+		context.Background(),
+		30*time.Second, // TODO: Вынести в конфиг
+	)
+	defer forceStopCtx()
 	go func() {
-		// ждём завершения всех горутин
-		wg.Wait()
-		// когда все горутины завершились, закрываем результирующий канал
-		close(finalCh)
+		<-forceCtx.Done()
+		if forceCtx.Err() == context.DeadlineExceeded {
+			slog.Error("shutdown timed out... forcing exit.")
+			os.Exit(1)
+		}
 	}()
-
-	// возвращаем результирующий канал
-	return finalCh
+	// Закрытие контекстов сервисов в порядке создания
+	for i := range stops {
+		// TODO: Ожидать закрытия каждого сервиса
+		stops[i]()
+	}
+	// Ожидание остановки сервисов
+	return eg.Wait()
 }

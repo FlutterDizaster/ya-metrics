@@ -5,11 +5,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"sync"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/sync/errgroup"
 )
 
 // Интерфейс взаимодействия с репозиторием метрик.
@@ -84,44 +84,25 @@ func New(as *Settings) *API {
 }
 
 // Функция запуска сервсиса.
-// TODO: Избавиться от errgroup
 func (api *API) Start(ctx context.Context) error {
 	slog.Info("Starting API service")
 	defer slog.Info("API server succesfully stopped")
-	wg := sync.WaitGroup{}
+	eg := errgroup.Group{}
 
-	errCh := make(chan error)
-	defer close(errCh)
+	eg.Go(func() error {
+		slog.Info("Listening...")
+		err := api.server.ListenAndServe()
+		if !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	})
 
-	wg.Add(1)
-	go func() {
-		api.start(errCh)
-		wg.Done()
-	}()
+	<-ctx.Done()
+	eg.Go(func() error {
+		slog.Info("Shutingdown API service")
+		return api.server.Shutdown(context.TODO())
+	})
 
-	var err error
-
-	select {
-	case <-ctx.Done():
-		api.stop(errCh)
-	case err = <-errCh:
-		return err
-	}
-
-	return <-errCh
-}
-
-func (api *API) start(errCh chan error) {
-	slog.Info("Listening...")
-	err := api.server.ListenAndServe()
-	if !errors.Is(err, http.ErrServerClosed) {
-		errCh <- err
-	} else {
-		errCh <- nil
-	}
-}
-
-func (api *API) stop(errCh chan error) {
-	slog.Info("Shutingdown API service")
-	errCh <- api.server.Shutdown(context.TODO())
+	return eg.Wait()
 }
