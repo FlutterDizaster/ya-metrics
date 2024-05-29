@@ -169,7 +169,7 @@ func (t *Telemetry) collectPCStats() view.Metrics {
 	}
 
 	for i := range utilization {
-		name := fmt.Sprintf("CPUutilization%d", i)
+		name := fmt.Sprintf("CPUutilization%d", i+1)
 		metric, err = view.NewMetric(
 			view.KindGauge,
 			name,
