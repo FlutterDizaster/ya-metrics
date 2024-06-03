@@ -4,35 +4,52 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/FlutterDizaster/ya-metrics/pkg/validation"
+	"github.com/FlutterDizaster/ya-metrics/pkg/workerpool"
 	"github.com/go-resty/resty/v2"
 )
 
 // TODO: Прокинуть контекст в resty для Graceful Shutdown
+
+type Buffer interface {
+	Pull() ([]view.Metric, error)
+}
 
 type Settings struct {
 	Addr             string
 	RetryCount       int
 	RetryInterval    time.Duration
 	RetryMaxWaitTime time.Duration
+	ReportInterval   time.Duration
+	Key              string
+	Buf              Buffer
+	RateLimit        int
 }
 
 type Sender struct {
-	metricsBuffer []view.Metric
-	endpointAddr  string
-	client        *resty.Client
+	endpointAddr   string
+	client         *resty.Client
+	reportInterval time.Duration
+	key            string
+	buf            Buffer
+	wpool          workerpool.WorkerPool
 }
 
-func NewSender(settings *Settings) *Sender {
+func New(settings Settings) *Sender {
 	slog.Debug("Creating sender")
 	sender := &Sender{
-		metricsBuffer: make([]view.Metric, 0),
-		endpointAddr:  fmt.Sprintf("http://%s/updates/", settings.Addr),
-		client:        resty.New(),
+		endpointAddr:   fmt.Sprintf("http://%s/updates/", settings.Addr),
+		client:         resty.New(),
+		reportInterval: settings.ReportInterval,
+		key:            settings.Key,
+		buf:            settings.Buf,
+		wpool:          *workerpool.New(settings.RateLimit),
 	}
 	sender.client.SetRetryCount(settings.RetryCount)
 	sender.client.SetRetryWaitTime(settings.RetryInterval)
@@ -40,26 +57,59 @@ func NewSender(settings *Settings) *Sender {
 	return sender
 }
 
-func (s *Sender) SendMetrics(ctx context.Context, metrics []view.Metric) {
-	slog.Debug("Sending metrics")
+func (s *Sender) Start(ctx context.Context) error {
+	slog.Debug("Sender", slog.String("status", "start"))
+	ticker := time.NewTicker(s.reportInterval)
+	slog.Info("Sender started", "report interval", s.reportInterval)
 
-	s.sendBatch(ctx, metrics)
-	// for _, metric := range metrics {
-	// 	s.sendMetric(ctx, metric)
-	// }
-	slog.Debug("Metrics sended")
+	// Первая отправка метрик
+	s.send(ctx)
+
+	// Старт основного цикла
+	for {
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			lastCtx, lastCancleCtx := context.WithTimeout(context.Background(), 3*time.Second)
+			defer lastCancleCtx()
+			s.send(lastCtx)
+			s.wpool.Close()
+			slog.Debug("Sender", slog.String("status", "stop"))
+			return nil
+		case <-ticker.C:
+			s.send(ctx)
+		}
+	}
 }
 
-func (s *Sender) sendBatch(ctx context.Context, metrics view.Metrics) {
-	metricsBytes, err := metrics.MarshalJSON()
+func (s *Sender) send(ctx context.Context) {
+	slog.Debug("Sender", slog.String("status", "sending..."))
+	// ПОлучение метрик из буфера агента
+	// var metrics view.Metrics
+	metrics, err := s.buf.Pull()
+	if err != nil {
+		slog.Error("Sender", "error", err)
+		return
+	}
+
+	// Маршалинг метрик
+	metricsBytes, err := view.Metrics(metrics).MarshalJSON()
 	if err != nil {
 		slog.Error("marshaling error", "error", err)
 		return
 	}
 
+	// Формирование запроса
 	req := s.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetContext(ctx)
+
+	// Подсчет хеша при необходимости
+	if s.key != "" {
+		slog.Debug("Calculating hash")
+		hash := validation.CalculateHashSHA256(metricsBytes, []byte(s.key))
+		req.SetHeader("HashSHA256", hex.EncodeToString(hash))
+	}
 
 	// Сжатие метрики
 	data, err := compressData(metricsBytes)
@@ -71,50 +121,22 @@ func (s *Sender) sendBatch(ctx context.Context, metrics view.Metrics) {
 	}
 
 	// Отправка запроса
-	resp, err := req.Post(s.endpointAddr)
-
-	slog.Info(
-		"request send",
-		"error", err,
-		"metrics count", len(metrics),
-		"status", resp.StatusCode(),
-		// "response", string(resp.Body()),
-	)
+	err = s.wpool.Do(func() {
+		resp, errr := req.Post(s.endpointAddr)
+		if errr != nil {
+			slog.Info("Sender", "error", errr)
+		} else {
+			slog.Info(
+				"Sender",
+				slog.String("status", "sended"),
+				slog.Int("response_code", resp.StatusCode()),
+			)
+		}
+	})
+	if err != nil {
+		slog.Error("unexpected sender error", "error", err)
+	}
 }
-
-// func (s *Sender) sendMetric(ctx context.Context, metric view.Metric) {
-// 	// Marshal метрики
-// 	metricBytes, err := metric.MarshalJSON()
-// 	if err != nil {
-// 		slog.Error("marshaling error", "error", err)
-// 		return
-// 	}
-
-// 	// Создание запроса
-// 	req := s.client.R().
-// 		SetHeader("Content-Type", "application/json").
-// 		SetContext(ctx)
-
-// 	// Сжатие метрики
-// 	data, err := compressData(metricBytes)
-// 	if err != nil {
-// 		req.SetBody(metricBytes)
-// 	} else {
-// 		req.SetHeader("Content-Encoding", "gzip").
-// 			SetBody(data)
-// 	}
-
-// 	// Отправка запроса
-// 	resp, err := req.Post(s.endpointAddr)
-
-// 	slog.Info(
-// 		"request send",
-// 		"error", err,
-// 		"status", resp.StatusCode(),
-// 		"metric", metric.ID,
-// 		"value", metric.StringValue(),
-// 	)
-// }
 
 func compressData(data []byte) ([]byte, error) {
 	buf := &bytes.Buffer{}

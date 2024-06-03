@@ -37,10 +37,12 @@ func (r *responseRecorder) Write(data []byte) (int, error) {
 	return size, err
 }
 
+type Logger struct{}
+
 // Logger является middleware функцией для использования совместно с chi роутером.
 // Выводит с помощью slog сообщение с указанием метода запрос, URL адреса, времени выполнения в ms,
 // статус код ответа и кол-во байт тела ответа.
-func Logger(next http.Handler) http.Handler {
+func (l *Logger) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// start timer
 		startTime := time.Now()
@@ -65,11 +67,14 @@ func Logger(next http.Handler) http.Handler {
 			slog.String("url", r.RequestURI),
 			slog.String("accept-encoding", r.Header.Get("Accept-Encoding")),
 			slog.String("content-encoding", r.Header.Get("Content-Encoding")),
+			slog.String("content-type", r.Header.Get("Content-Type")),
 			slog.Int64("time_taken_ms", deltaTime.Milliseconds()),
 			slog.Group(
 				"response",
 				slog.Int("status", rec.responseData.statusCode),
 				slog.Int("body_length", rec.responseData.dataSize),
+				slog.String("content-encoding", w.Header().Get("Content-Encoding")),
+				slog.String("content-type", w.Header().Get("Content-Type")),
 			),
 		)
 	})

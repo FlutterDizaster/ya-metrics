@@ -14,26 +14,22 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
-const (
-	defaultEndpoint        = "localhost:8080"
-	defaultStoreInterval   = 300
-	defaultFileStoragePath = "/tmp/metrics-db.json"
-	defaultRestore         = true
-	defaultPGConnString    = ""
-)
-
 func main() {
+	os.Exit(mainReturnWithCode())
+}
+
+func mainReturnWithCode() int {
 	// initialize logger
-	logger.Init()
+	logger.New()
 
 	// Создание структуры с настройками сервера
 	settings := parseConfig()
 	// Создание сервера
 	srv, err := server.New(settings)
 	if err != nil {
-		panic(err)
+		slog.Error("Creating server error", slog.String("error", err.Error()))
+		return 1
 	}
-
 	// Создание контекста отмены
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),
@@ -47,11 +43,21 @@ func main() {
 
 	// Запуск сервера
 	if err = srv.Start(ctx); err != nil {
-		panic(err)
+		slog.Error("Server startup error", slog.String("error", err.Error()))
+		return 1
 	}
+
+	return 0
 }
 
 func parseConfig() server.Settings {
+	const (
+		defaultEndpoint        = "localhost:8080"
+		defaultStoreInterval   = 300
+		defaultFileStoragePath = "/tmp/metrics-db.json"
+		defaultRestore         = true
+		defaultPGConnString    = ""
+	)
 	var settings server.Settings
 	flag.StringVarP(
 		&settings.URL,
@@ -88,6 +94,13 @@ func parseConfig() server.Settings {
 		defaultStoreInterval,
 		"Time between backups in seconds. Default 300",
 	)
+	flag.StringVarP(
+		&settings.Key,
+		"key",
+		"k",
+		"",
+		"Hash key",
+	)
 
 	flag.Parse()
 
@@ -114,6 +127,10 @@ func lookupEnvs(settings server.Settings) server.Settings {
 	envStoreInterval, ok := lookupIntEnv("STORE_INTERVAL")
 	if ok {
 		settings.StoreInterval = envStoreInterval
+	}
+	envHashKey, ok := os.LookupEnv("KEY")
+	if ok {
+		settings.Key = envHashKey
 	}
 
 	return settings

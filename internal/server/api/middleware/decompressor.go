@@ -8,9 +8,11 @@ import (
 	"strings"
 )
 
+type Decompressor struct{}
+
 // GzipUncompressor является middleware функцией для использования совместно с chi роутером.
 // Распаковывает тело запроса, если клиент отправил его в таком виде.
-func GzipUncompressor(next http.Handler) http.Handler {
+func (d *Decompressor) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Content-Encoding"), "gzip") || r.Body == nil {
 			next.ServeHTTP(rw, r)

@@ -3,124 +3,70 @@ package agent
 import (
 	"context"
 	"log/slog"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
 	"time"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/agent/buffer"
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/sender"
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/telemetry"
-	"github.com/FlutterDizaster/ya-metrics/internal/agent/worker"
-	"github.com/FlutterDizaster/ya-metrics/internal/view"
-	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
+	"github.com/FlutterDizaster/ya-metrics/internal/application"
 )
 
-const (
-	retryCount         = 3
-	retryIntervalMS    = 1000
-	retryMaxWaitTime   = 5
-	gracefullPeriodSec = 20
-)
+type Service interface {
+	Start(ctx context.Context) error
+}
 
-func Setup(endpoint string, reportInterval int, pollInterval int) {
-	logger.Init()
+type Settings struct {
+	ServerAddr       string
+	HashKey          string
+	RetryCount       int
+	RetryInterval    int
+	RetryMaxWaitTime int
+	ReportInterval   int
+	PollInterval     int
+	RateLimit        int
+	// GracefullPeriod  time.Duration
+}
 
-	customMetricsList := []view.Metric{
-		{ID: "Alloc", MType: "gauge", Source: view.MemStats},
-		{ID: "BuckHashSys", MType: "gauge", Source: view.MemStats},
-		{ID: "Frees", MType: "gauge", Source: view.MemStats},
-		{ID: "GCCPUFraction", MType: "gauge", Source: view.MemStats},
-		{ID: "GCSys", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapAlloc", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapIdle", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapInuse", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapObjects", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapReleased", MType: "gauge", Source: view.MemStats},
-		{ID: "HeapSys", MType: "gauge", Source: view.MemStats},
-		{ID: "LastGC", MType: "gauge", Source: view.MemStats},
-		{ID: "Lookups", MType: "gauge", Source: view.MemStats},
-		{ID: "MCacheInuse", MType: "gauge", Source: view.MemStats},
-		{ID: "MCacheSys", MType: "gauge", Source: view.MemStats},
-		{ID: "MSpanInuse", MType: "gauge", Source: view.MemStats},
-		{ID: "MSpanSys", MType: "gauge", Source: view.MemStats},
-		{ID: "Mallocs", MType: "gauge", Source: view.MemStats},
-		{ID: "NextGC", MType: "gauge", Source: view.MemStats},
-		{ID: "NumForcedGC", MType: "gauge", Source: view.MemStats},
-		{ID: "NumGC", MType: "gauge", Source: view.MemStats},
-		{ID: "OtherSys", MType: "gauge", Source: view.MemStats},
-		{ID: "PauseTotalNs", MType: "gauge", Source: view.MemStats},
-		{ID: "StackInuse", MType: "gauge", Source: view.MemStats},
-		{ID: "StackSys", MType: "gauge", Source: view.MemStats},
-		{ID: "Sys", MType: "gauge", Source: view.MemStats},
-		{ID: "TotalAlloc", MType: "gauge", Source: view.MemStats},
+type Agent struct {
+	application.Application
+}
+
+func New(settings Settings) (*Agent, error) {
+	slog.Debug("Creating agent instance")
+	// Создание экземпляра Buffer
+	buf := buffer.New()
+
+	// Создание экземпляра Telemetry
+	telemetrySettings := telemetry.Settings{
+		PollInterval: time.Duration(settings.PollInterval) * time.Second,
+		Buf:          buf,
 	}
+	tlm := telemetry.New(telemetrySettings)
 
-	ctx, cancel := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt,
-		syscall.SIGINT,
-		syscall.SIGHUP,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
-	defer cancel()
-
-	senderSettings := &sender.Settings{
-		Addr:             endpoint,
-		RetryCount:       retryCount,
-		RetryInterval:    retryIntervalMS * time.Microsecond,
-		RetryMaxWaitTime: retryMaxWaitTime * time.Second,
+	// Создание экземпляра Sender
+	senderSettings := sender.Settings{
+		Addr:             settings.ServerAddr,
+		RetryCount:       settings.RetryCount,
+		RetryInterval:    time.Duration(settings.RetryInterval) * time.Second,
+		RetryMaxWaitTime: time.Duration(settings.RetryMaxWaitTime) * time.Second,
+		ReportInterval:   time.Duration(settings.ReportInterval) * time.Second,
+		Key:              settings.HashKey,
+		Buf:              buf,
+		RateLimit:        settings.RateLimit,
 	}
+	snd := sender.New(senderSettings)
 
-	sender := sender.NewSender(senderSettings)
-
-	collector := telemetry.NewMetricCollector(customMetricsList)
-
-	workerSettings := &worker.Settings{
-		Collector:      collector,
-		Sender:         sender,
-		ReportInterval: reportInterval,
-		PollInterval:   pollInterval,
-	}
-
-	w, err := worker.NewWorker(workerSettings)
+	// Создание агента и регистрация сервисов
+	agent := &Agent{}
+	err := agent.RegisterService(tlm)
 	if err != nil {
-		slog.Error(
-			"worker error",
-			slog.String("error", err.Error()),
-		)
+		return nil, err
+	}
+	err = agent.RegisterService(snd)
+	if err != nil {
+		return nil, err
 	}
 
-	var wg sync.WaitGroup
-
-	// Создание контекста воркера
-	workerCtx, workerCancleCtx := context.WithCancel(context.Background())
-	wg.Add(1)
-	go func() {
-		w.Start(workerCtx)
-		wg.Done()
-	}()
-
-	// Ожидание завершения контекста сигналом системы
-	<-ctx.Done()
-
-	// Запуск Gracefull Keeper
-	// Завершает выполнение программы через gracefullPeriodSec секунд, если программа не завершится сама
-	forceCtx, forceStopCtx := context.WithTimeout(
-		context.Background(),
-		gracefullPeriodSec*time.Second,
-	)
-	defer forceStopCtx()
-	go func() {
-		<-forceCtx.Done()
-		if forceCtx.Err() == context.DeadlineExceeded {
-			slog.Error("shutdown timed out... forcing exit.")
-			os.Exit(1)
-		}
-	}()
-
-	workerCancleCtx()
-
-	wg.Wait()
+	slog.Debug("Agent instance created")
+	return agent, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
@@ -64,48 +65,63 @@ func (ms *MetricStorage) Start(ctx context.Context) error {
 	return nil
 }
 
-func (ms *MetricStorage) AddBatchMetrics(metrics []view.Metric) error {
+func (ms *MetricStorage) AddMetrics(metrics ...view.Metric) ([]view.Metric, error) {
 	ctx, cancle := context.WithTimeout(context.TODO(), 3*time.Second)
 	defer cancle()
+	// Создание слайса возвращаемых метрик
+	resutl := make([]view.Metric, 0, len(metrics))
 	// Начало транзакции
 	tx, err := ms.db.Begin(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// записываем каждую метрику
-	for _, metric := range metrics {
-		_, err = tx.Exec(ctx, queryAdd, metric.ID, metric.MType, metric.Value, metric.Delta)
+	for i := range metrics {
+		// подготовка переменных
+		var value sql.NullFloat64
+		var delta sql.NullInt64
+		metric := metrics[i]
+		// выполнение запроса
+		err = tx.QueryRow(ctx, queryAdd, metric.ID, metric.MType, metric.Value, metric.Delta).
+			Scan(&value, &delta)
 		if err != nil {
-			return errors.Join(err, tx.Rollback(ctx))
+			return nil, errors.Join(err, tx.Rollback(ctx))
 		}
+		// Сохранение ответа
+		if value.Valid {
+			metric.Value = &value.Float64
+		} else if delta.Valid {
+			metric.Delta = &delta.Int64
+		}
+		resutl = append(resutl, metric)
 	}
 
 	// Коммитим транзакцию
-	return tx.Commit(ctx)
+	return resutl, tx.Commit(ctx)
 }
 
-func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
-	// Подготовка переменных
-	var value sql.NullFloat64
-	var delta sql.NullInt64
-	// Выполнение запроса
-	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
-	defer cancle()
-	err := ms.db.QueryRow(ctx, queryAdd, metric.ID, metric.MType, metric.Value, metric.Delta).
-		Scan(&value, &delta)
-	if err != nil {
-		return view.Metric{}, err
-	}
-	// Сохранение ответа
-	if value.Valid {
-		metric.Value = &value.Float64
-	} else if delta.Valid {
-		metric.Delta = &delta.Int64
-	}
+// func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
+// 	// Подготовка переменных
+// 	var value sql.NullFloat64
+// 	var delta sql.NullInt64
+// 	// Выполнение запроса
+// 	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
+// 	defer cancle()
+// 	err := ms.db.QueryRow(ctx, queryAdd, metric.ID, metric.MType, metric.Value, metric.Delta).
+// 		Scan(&value, &delta)
+// 	if err != nil {
+// 		return view.Metric{}, err
+// 	}
+// 	// Сохранение ответа
+// 	if value.Valid {
+// 		metric.Value = &value.Float64
+// 	} else if delta.Valid {
+// 		metric.Delta = &delta.Int64
+// 	}
 
-	return metric, nil
-}
+// 	return metric, nil
+// }
 
 func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error) {
 	var metric view.Metric
@@ -167,6 +183,7 @@ func (ms *MetricStorage) ReadAllMetrics() ([]view.Metric, error) {
 }
 
 func (ms *MetricStorage) checkAndCreateTable() error {
+	slog.Debug("Creating table")
 	ctx, cancle := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancle()
 	_, err := ms.db.Exec(ctx, queryCheckAndCreateDB)
