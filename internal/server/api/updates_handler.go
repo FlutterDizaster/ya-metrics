@@ -10,6 +10,18 @@ import (
 )
 
 // updateBatchHandler обрабатывает POST-запросы на добавление множества метрик в репозиторий.
+//
+// Swagger описание:
+// @Summary Update metrics
+// @Description Update metrics in DB
+// @Tags metrics
+// @Produce json
+// @Param metrics body []view.Metric true "Metrics"
+// @Success 200 {array} view.Metric
+// @Failure 400 {string} string "Bad request"
+// @Failure 500 {string} string "Error"
+// @Router /updates [post]
+// Конец Swagger описания.
 func (api *API) updateBatchHandler(w http.ResponseWriter, r *http.Request) {
 	var metrics view.Metrics
 	var buf bytes.Buffer

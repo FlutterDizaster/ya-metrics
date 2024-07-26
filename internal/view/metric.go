@@ -18,12 +18,23 @@ type Metrics []Metric
 // Metric - структура описывающая метрику.
 // Может иметь тип gauge или counter.
 //
+// @swagger:model
+//
 //go:generate easyjson -all metric.go
 type Metric struct {
-	ID    string   `json:"id"`              // имя метрики
-	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
-	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	// Metric ID
+	// Required: true
+	ID string `json:"id"`
+	// Metric Type
+	// Possible values: gauge, counter
+	// Required: true
+	MType string `json:"type"`
+	// Counter value
+	// Required: false
+	Delta *int64 `json:"delta,omitempty"`
+	// Gauge value
+	// Required: false
+	Value *float64 `json:"value,omitempty"`
 }
 
 // Функция для создания метрики.

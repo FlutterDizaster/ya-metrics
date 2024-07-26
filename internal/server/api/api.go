@@ -10,6 +10,7 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/go-chi/chi/v5"
 	chimiddle "github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -67,6 +68,7 @@ func New(as *Settings) *API {
 		rr.Post("/", api.getJSONMetricHandler)
 		rr.Get("/{kind}/{name}", api.getMetricHandler)
 	})
+	r.Get("/swagger/*", httpSwagger.WrapHandler)
 	r.Mount("/debug", chimiddle.Profiler())
 
 	// настройка ответов на не обрабатываемые сервером запросы

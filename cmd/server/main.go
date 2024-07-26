@@ -10,11 +10,20 @@ import (
 
 	_ "net/http/pprof"
 
+	_ "github.com/FlutterDizaster/ya-metrics/swagger"
+
 	flag "github.com/spf13/pflag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
+
+// @title Ya-Metrics API
+// @version 0.3
+// @description API for getting and setting metrics
+// @BasePath /
+// @contact.name Dmitriy Loginov
+// @contact.email dmitriy@loginoff.space
 
 func main() {
 	os.Exit(mainReturnWithCode())
