@@ -24,6 +24,7 @@ definitions:
           Required: false
         type: number
     type: object
+host: localhost:8080
 info:
   contact:
     email: dmitriy@loginoff.space

@@ -50,26 +50,35 @@ func New(as *Settings) *API {
 
 	r := chi.NewRouter()
 
-	// передача Middleware функций в chi.Mux
-	for i := range as.Middlewares {
-		r.Use(as.Middlewares[i].Handle)
-	}
 	// r.Use(as.Middlewares...)
 
 	// настройка роутинга
-	r.Get("/", api.getAllHandler)
-	r.Get("/ping", api.pingHandler)
-	r.Post("/updates/", api.updateBatchHandler)
-	r.Route("/update", func(rr chi.Router) {
-		rr.Post("/", api.updateJSONHandler)
-		rr.Post("/{kind}/{name}/{value}", api.updateHandler)
+	// Application routes
+	r.Group(func(r chi.Router) {
+		// передача Middleware функций в chi.Mux
+		for i := range as.Middlewares {
+			r.Use(as.Middlewares[i].Handle)
+		}
+
+		r.Get("/", api.getAllHandler)
+		r.Get("/ping", api.pingHandler)
+		r.Post("/updates/", api.updateBatchHandler)
+		r.Route("/update", func(rr chi.Router) {
+			rr.Post("/", api.updateJSONHandler)
+			rr.Post("/{kind}/{name}/{value}", api.updateHandler)
+		})
+		r.Route("/value", func(rr chi.Router) {
+			rr.Post("/", api.getJSONMetricHandler)
+			rr.Get("/{kind}/{name}", api.getMetricHandler)
+		})
 	})
-	r.Route("/value", func(rr chi.Router) {
-		rr.Post("/", api.getJSONMetricHandler)
-		rr.Get("/{kind}/{name}", api.getMetricHandler)
+
+	// Development Routes
+	r.Group(func(r chi.Router) {
+		r.Use(chimiddle.Logger)
+		r.Get("/swagger/*", httpSwagger.WrapHandler)
+		r.Mount("/debug", chimiddle.Profiler())
 	})
-	r.Get("/swagger/*", httpSwagger.WrapHandler)
-	r.Mount("/debug", chimiddle.Profiler())
 
 	// настройка ответов на не обрабатываемые сервером запросы
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {

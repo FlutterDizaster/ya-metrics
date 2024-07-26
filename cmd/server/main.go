@@ -21,6 +21,7 @@ import (
 // @title Ya-Metrics API
 // @version 0.3
 // @description API for getting and setting metrics
+// @host localhost:8080
 // @BasePath /
 // @contact.name Dmitriy Loginov
 // @contact.email dmitriy@loginoff.space
