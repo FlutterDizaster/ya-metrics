@@ -30,7 +30,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/go-chi/chi/v5 v5.0.12
+	github.com/go-chi/chi/v5 v5.1.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/zerolog v1.32.0

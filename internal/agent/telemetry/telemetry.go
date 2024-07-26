@@ -32,6 +32,7 @@ type Telemetry struct {
 	rnd          rand.Rand
 }
 
+// Функция создания экземпляра Telemetry.
 func New(settings Settings) *Telemetry {
 	randSource := rand.NewSource(time.Now().UnixNano())
 	return &Telemetry{
@@ -41,6 +42,7 @@ func New(settings Settings) *Telemetry {
 	}
 }
 
+// Функция запуска сервсиса. Перед использованием необходимо создать экземпляр Telemetry с помощью New().
 func (t *Telemetry) Start(ctx context.Context) error {
 	slog.Debug("Telemetry", slog.String("status", "start"))
 	ticker := time.NewTicker(t.pollInterval)

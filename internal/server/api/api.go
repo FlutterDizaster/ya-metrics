@@ -9,6 +9,7 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	"github.com/go-chi/chi/v5"
+	chimiddle "github.com/go-chi/chi/v5/middleware"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -66,6 +67,7 @@ func New(as *Settings) *API {
 		rr.Post("/", api.getJSONMetricHandler)
 		rr.Get("/{kind}/{name}", api.getMetricHandler)
 	})
+	r.Mount("/debug", chimiddle.Profiler())
 
 	// настройка ответов на не обрабатываемые сервером запросы
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {

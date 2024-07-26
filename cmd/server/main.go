@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"syscall"
 
+	_ "net/http/pprof"
+
 	flag "github.com/spf13/pflag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
