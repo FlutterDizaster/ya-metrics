@@ -86,3 +86,62 @@ func TestRouter_getAllHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestAPI_getAllJSONHandler(t *testing.T) {
+	type want struct {
+		code    int
+		content string
+	}
+	type test struct {
+		name   string
+		values view.Metrics
+		want   want
+	}
+	tests := []test{
+		{
+			name: "simple test",
+			values: []view.Metric{
+				{
+					ID:    "test",
+					MType: "gauge",
+					Value: func(i float64) *float64 { return &i }(555),
+				},
+			},
+			want: want{
+				code: 200,
+			},
+		},
+	}
+
+	for i := range tests {
+		strContent, err := tests[i].values.MarshalJSON()
+		require.NoError(t, err)
+		tests[i].want.content = string(strContent)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := New(&Settings{
+				Storage: &MockMetricsStorage{
+					content: tt.values,
+				},
+			})
+
+			server := httptest.NewServer(http.HandlerFunc(r.getAllJSONHandler))
+			defer server.Close()
+
+			client := resty.New()
+
+			resp, err := client.R().Get(fmt.Sprintf("%s/", server.URL))
+
+			require.NoError(t, err, "error making http request")
+			assert.Equal(t, tt.want.code, resp.StatusCode())
+
+			var respMetrics view.Metrics
+			err = respMetrics.UnmarshalJSON(resp.Body())
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.values, respMetrics)
+		})
+	}
+}

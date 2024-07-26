@@ -10,20 +10,26 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Service interface {
+// Интерфейс IService описывает объекты, которые могут быть запущены как отдельные потоки приложения.
+type IService interface {
 	Start(context.Context) error
 }
 
+// Application используется для запуска сервисов и управления их жизненным циклом.
 type Application struct {
-	services []Service
+	services []IService
 }
 
+// RegisterService добавляет новый сервис список для запуска.
 // TODO: Добавыть выброс ошибки, если инициализация уже пройдена
-func (a *Application) RegisterService(service Service) error {
+func (a *Application) RegisterService(service IService) error {
 	a.services = append(a.services, service)
 	return nil
 }
 
+// Start запускает все зарегистрированные сервисы.
+// Блокирует поток исполнения до закрытия контекста ctx.
+// При закрытии контекста завершается все запущенные сервисы.
 func (a *Application) Start(ctx context.Context) error {
 	slog.Debug("Starting services")
 	// Если сервисов нет, то и запускать нечего

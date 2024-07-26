@@ -19,7 +19,7 @@ func main() {
 }
 
 func mainReturnWithCode() int {
-	logger.New()
+	logger.New(slog.LevelDebug)
 
 	// Создание сруктуры с настройкаами агента
 	settings := parseConfig()

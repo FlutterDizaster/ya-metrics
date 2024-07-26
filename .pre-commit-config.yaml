@@ -21,6 +21,6 @@ repos:
 
       - id: golangci-lint
         name: golangci-lint
-        entry: sh -c 'golangci-lint run ./...'
+        entry: sh -c 'golangci-lint run --allow-parallel-runners ./...'
         language: system
         types: [go]

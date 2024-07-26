@@ -8,24 +8,20 @@ import (
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
-	// PostgreSQL driver.
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// type DataProvider interface {
-// 	AddGauge(view.Metric) (view.Metric, error)
-// 	AddCounter(view.Metric) (view.Metric, error)
-// 	GetMetric(kind string, name string) (view.Metric, error)
-// 	ReadAllMetrics() []view.Metric
-// }
-
-// var _ DataProvider = &MetricStorage{}
-
+// Реализация хранилища метрик в таблицах PostgreSQL.
+// Экземпляр должен создаваться с помощью New.
 type MetricStorage struct {
 	db *pgxpool.Pool
 }
 
+// Функция фабрика для создания нового экземпляра MetricStorage.
+// Принимает строку подключения к БД.
+// В случае ошибки возвращает nil и ошибку.
+// В случае успеха возвращает новый экземпляр MetricStorage и nil.
 func New(conn string) (*MetricStorage, error) {
 	ms := &MetricStorage{}
 	// Создание экземпляра DB
@@ -50,6 +46,9 @@ func New(conn string) (*MetricStorage, error) {
 	return ms, nil
 }
 
+// Метод запускающий сервис БД.
+// Блокирует поток исполнения до закрытия контекста ctx.
+// В случае невозможности подключения к бд возвращает ошибку.
 func (ms *MetricStorage) Start(ctx context.Context) error {
 	// Проверяем есть ли таблица в бд и при необходимости создаем её
 	err := ms.checkAndCreateTable()
@@ -65,6 +64,10 @@ func (ms *MetricStorage) Start(ctx context.Context) error {
 	return nil
 }
 
+// Метод добавляющий метрики в БД.
+// Принимает слайс метрик, которые необходимо добавить в БД.
+// Возвращает список обновленных метрик и nil.
+// В случае ошибки возвращает nil и ошибку.
 func (ms *MetricStorage) AddMetrics(metrics ...view.Metric) ([]view.Metric, error) {
 	ctx, cancle := context.WithTimeout(context.TODO(), 3*time.Second)
 	defer cancle()
@@ -101,28 +104,10 @@ func (ms *MetricStorage) AddMetrics(metrics ...view.Metric) ([]view.Metric, erro
 	return resutl, tx.Commit(ctx)
 }
 
-// func (ms *MetricStorage) AddMetric(metric view.Metric) (view.Metric, error) {
-// 	// Подготовка переменных
-// 	var value sql.NullFloat64
-// 	var delta sql.NullInt64
-// 	// Выполнение запроса
-// 	ctx, cancle := context.WithTimeout(context.TODO(), 1*time.Second)
-// 	defer cancle()
-// 	err := ms.db.QueryRow(ctx, queryAdd, metric.ID, metric.MType, metric.Value, metric.Delta).
-// 		Scan(&value, &delta)
-// 	if err != nil {
-// 		return view.Metric{}, err
-// 	}
-// 	// Сохранение ответа
-// 	if value.Valid {
-// 		metric.Value = &value.Float64
-// 	} else if delta.Valid {
-// 		metric.Delta = &delta.Int64
-// 	}
-
-// 	return metric, nil
-// }
-
+// Метод получения метрики из хранилища.
+// Принимает тип метрики и ID метрики.
+// Возвращает ошибку в случае если метрика не найдена или у метрики с ID = name другой тип.
+// Так же ошибка вернется, если не удалось установить соединение с БД.
 func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error) {
 	var metric view.Metric
 	metric.ID = name
@@ -143,6 +128,8 @@ func (ms *MetricStorage) GetMetric(kind string, name string) (view.Metric, error
 	return metric, err
 }
 
+// Метод получения всех метрик из хранилища.
+// Возврашает слайс метрик и ошибку.
 func (ms *MetricStorage) ReadAllMetrics() ([]view.Metric, error) {
 	metrics := make([]view.Metric, 0)
 	// Выполнение запроса

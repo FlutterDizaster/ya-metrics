@@ -12,28 +12,39 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 )
 
-type Service interface {
+// Интерфейс IService описывает объекты, которые могут быть запущены как отдельные потоки приложения.
+type IService interface {
 	Start(ctx context.Context) error
 }
 
-type StorageService interface {
-	Service
+// Интерфейс IStorageService объединяет интерфейсы IService и api.MetricsStorage.
+type IStorageService interface {
+	IService
 	api.MetricsStorage
 }
 
+// Settings хранит параметры необходимые для создания экземпляра Server.
 type Settings struct {
-	URL             string
-	StoreInterval   int
-	FileStoragePath string
-	Restore         bool
-	PGConnString    string
-	Key             string
+	URL             string // URL адрес сервера
+	StoreInterval   int    // Интервал сохранения данных в хранилище
+	FileStoragePath string // Путь к файлу бекапа данных
+	Restore         bool   // Флаг восстановления данных. Если true, то данные будут восстановлены из бекапа
+	PGConnString    string // Строка подключения к базе данных
+	Key             string // Ключ шифрования данных
 }
 
+// Server - структура, которая представляет собоей сервер метрик.
+// Занимается логикой работы сервера метрик.
+// Объединяет API сервер и хранилище метрик.
+// Должен создаваться методом New().
+// Для запуска используется метод Start().
 type Server struct {
-	application.Application
+	application.Application // Application управляет жизненным циклом приложения
 }
 
+// New - создание нового экземпляра Server.
+// В качестве параметров принимает настройки сервера.
+// Возвращает экземпляр Server и ошибку инициализации.
 func New(settings Settings) (*Server, error) {
 	slog.Debug("Creating server instance")
 
@@ -42,7 +53,7 @@ func New(settings Settings) (*Server, error) {
 		slog.Error("url error", slog.String("error", err.Error()))
 	}
 	// Создание экземпляра StorageService
-	var storage StorageService
+	var storage IStorageService
 	var storageMode string
 	var err error
 	// Если строка для поключения к бд не указана

@@ -16,15 +16,11 @@ var (
 	errWrongType = errors.New("wrong metric type")
 )
 
-const (
-	kindGauge   = "gauge"
-	kindCounter = "counter"
-)
-
+// Тип Settings используется для хранения настроек хранилища метрик.
 type Settings struct {
-	StoreInterval   int
-	FileStoragePath string
-	Restore         bool
+	StoreInterval   int    // Интервал между записями в файл бекапа
+	FileStoragePath string // Путь к файлу бекапа
+	Restore         bool   // Флаг восстановления бекапа
 }
 
 // Тип MetricStorage используется для хранения метрик в оперативной памяти во время исполнения
@@ -40,6 +36,7 @@ type MetricStorage struct {
 }
 
 // Функция фабрика для создания нового экземпляра MetricStorage.
+// В качестве параметров принимает настройки хранилища.
 func New(settings *Settings) (*MetricStorage, error) {
 	slog.Debug("Creating DB storage")
 	ms := &MetricStorage{
@@ -72,6 +69,10 @@ func New(settings *Settings) (*MetricStorage, error) {
 	return ms, nil
 }
 
+// Метод добавления метрик в хранилище.
+// В качестве параметров принимает метрики.
+// Возвращает обновленные метрики.
+// В случае ошибки возвращает ошибку.
 func (ms *MetricStorage) AddMetrics(metrics ...view.Metric) ([]view.Metric, error) {
 	// Блокировка mutex в cond, чтобы избежать чтения данных при бекапе.
 	ms.cond.L.Lock()
@@ -88,9 +89,9 @@ func (ms *MetricStorage) AddMetrics(metrics ...view.Metric) ([]view.Metric, erro
 
 		var err error
 		switch metric.MType {
-		case kindGauge:
+		case view.KindGauge:
 			metric, err = ms.addGauge(metric)
-		case kindCounter:
+		case view.KindCounter:
 			metric, err = ms.addCounter(metric)
 		default:
 			return nil, errWrongType

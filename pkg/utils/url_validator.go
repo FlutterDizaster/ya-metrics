@@ -13,6 +13,12 @@ var (
 	ErrInvalidPort    = errors.New("url contains invalid port")
 )
 
+// Функция проверки валидности URL.
+// Если URL содержит схему, то возвращает ошибку.
+// Если URL не содержит хост, то возвращает ошибку.
+// Если URL содержит некорректный порт, то возвращает ошибку.
+// Если URL содержит некорректный адрес, то возвращает ошибку.
+// Если URL содержит корректный адрес, то возвращает nil.
 func ValidateURL(u string) error {
 	// is scheme defined?
 	if strings.Contains(u, "://") {

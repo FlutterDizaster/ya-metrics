@@ -81,6 +81,7 @@ func (api *API) getAllHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getAllJSONHandler обрабатывает GET-запросы на получение таблицы со всеми имеющимися метриками в формате JSON.
 func (api *API) getAllJSONHandler(w http.ResponseWriter, _ *http.Request) {
 	metrics, err := api.storage.ReadAllMetrics()
 	if err != nil {

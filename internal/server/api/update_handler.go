@@ -37,6 +37,8 @@ func (api *API) updateHandler(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Метод обрабатывает POST-запросы на добавление метрики в репозиторий.
+// Принимает тело запроса в формате JSON.
 func (api *API) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
 	var metric view.Metric
 	var buf bytes.Buffer

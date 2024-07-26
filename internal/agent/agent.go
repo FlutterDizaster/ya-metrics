@@ -11,26 +11,33 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/application"
 )
 
-type Service interface {
+// Интерфейс IService описывает объекты, которые могут быть запущены как отдельные потоки приложения.
+type IService interface {
 	Start(ctx context.Context) error
 }
 
+// Settings - настройки агента.
 type Settings struct {
-	ServerAddr       string
-	HashKey          string
-	RetryCount       int
-	RetryInterval    int
-	RetryMaxWaitTime int
-	ReportInterval   int
-	PollInterval     int
-	RateLimit        int
-	// GracefullPeriod  time.Duration
+	ServerAddr       string // Адрес сервера агрегатора метрик
+	HashKey          string // Ключ для вычисления Hash суммы
+	RetryCount       int    // Количество повторных попыток запроса к серверу
+	RetryInterval    int    // Интервал между повторными попытками
+	RetryMaxWaitTime int    // Максимальное время ожидания между повторными попытками
+	ReportInterval   int    // Интервал между отправками метрик
+	PollInterval     int    // Интервал между получением метрик
+	RateLimit        int    // Ограничение на количество запросов в секунду
 }
 
+// Agent управляет запуском сервисов по сбору и отправки метрик.
+// Должен быть создан методом New.
+// Запуск приложения производится методом Start.
 type Agent struct {
 	application.Application
 }
 
+// New создает новый экземпляр агента.
+// Принимает настройки агента.
+// Возвращает агента и ошибку.
 func New(settings Settings) (*Agent, error) {
 	slog.Debug("Creating agent instance")
 	// Создание экземпляра Buffer

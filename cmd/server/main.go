@@ -22,7 +22,7 @@ func main() {
 
 func mainReturnWithCode() int {
 	// initialize logger
-	logger.New()
+	logger.New(slog.LevelDebug)
 
 	// Создание структуры с настройками сервера
 	settings := parseConfig()

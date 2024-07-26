@@ -7,9 +7,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func New() {
+// Функция инициализации логгера.
+// Параметр level принимает уровень логгирования.
+func New(level slog.Level) {
 	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		Level: level,
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, opts))
 

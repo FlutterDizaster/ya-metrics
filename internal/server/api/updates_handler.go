@@ -9,6 +9,7 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 )
 
+// updateBatchHandler обрабатывает POST-запросы на добавление множества метрик в репозиторий.
 func (api *API) updateBatchHandler(w http.ResponseWriter, r *http.Request) {
 	var metrics view.Metrics
 	var buf bytes.Buffer
