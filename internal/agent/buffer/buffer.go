@@ -12,6 +12,9 @@ var (
 	errBufferClosed = errors.New("Buffer closed")
 )
 
+// Буфер хранения метрик перед отправкой.
+// Должен быть создан через New.
+// После использования буфер должен быть закрыт через Close.
 type Buffer struct {
 	metrics map[string]view.Metric
 	cond    sync.Cond
@@ -19,6 +22,7 @@ type Buffer struct {
 	closed  atomic.Bool
 }
 
+// Метод создания буфера.
 func New() *Buffer {
 	return &Buffer{
 		metrics: make(map[string]view.Metric),
@@ -26,10 +30,12 @@ func New() *Buffer {
 	}
 }
 
+// Метод закрытия буфера.
 func (b *Buffer) Close() {
 	b.closed.Store(true)
 }
 
+// Метод добавления метрик в буфер.
 func (b *Buffer) Put(metrics []view.Metric) error {
 	if b.closed.Load() {
 		return errBufferClosed
@@ -60,6 +66,8 @@ func (b *Buffer) Put(metrics []view.Metric) error {
 	return nil
 }
 
+// Метод вытягивания метрик из буфера.
+// После вытягивания буфер очищается.
 func (b *Buffer) Pull() ([]view.Metric, error) {
 	b.cond.L.Lock()
 	defer b.cond.L.Unlock()

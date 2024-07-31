@@ -5,30 +5,44 @@ import (
 	"strconv"
 )
 
-type MetricSource int
-
 const (
-	None MetricSource = iota
-	MemStats
+	KindGauge   = "gauge"   // Тип метрики gauge, значение метрики - float64
+	KindCounter = "counter" // Тип метрики counter, значение метрики - int64
 )
 
-const (
-	KindGauge   = "gauge"
-	KindCounter = "counter"
-)
-
+// Alias к срезу метрик.
+//
 //easyjson:json
 type Metrics []Metric
 
+// Metric - структура описывающая метрику.
+// Может иметь тип gauge или counter.
+//
+// @swagger:model
+//
 //go:generate easyjson -all metric.go
 type Metric struct {
-	ID     string       `json:"id"`              // имя метрики
-	MType  string       `json:"type"`            // параметр, принимающий значение gauge или counter
-	Delta  *int64       `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value  *float64     `json:"value,omitempty"` // значение метрики в случае передачи gauge
-	Source MetricSource `json:"-"`
+	// Metric ID
+	// Required: true
+	ID string `json:"id"`
+	// Metric Type
+	// Possible values: gauge, counter
+	// Required: true
+	MType string `json:"type"`
+	// Counter value
+	// Required: false
+	Delta *int64 `json:"delta,omitempty"`
+	// Gauge value
+	// Required: false
+	Value *float64 `json:"value,omitempty"`
 }
 
+// Функция для создания метрики.
+// kind - тип метрики KindGauge или KindCounter.
+// name - имя метрики. Может быть любым.
+// value - значение метрики. Должно быть текстовой репрезентацией целочисленного типа для метрик KindCounter или
+// дробной для метрик KindGauge.
+// При передаче некорректных значений возвращает ошибку.
 func NewMetric(kind string, name string, value string) (*Metric, error) {
 	metric := &Metric{
 		ID:    name,
@@ -53,6 +67,7 @@ func NewMetric(kind string, name string, value string) (*Metric, error) {
 	return metric, nil
 }
 
+// StringValue возвращает строковое представление значения метрики.
 func (m *Metric) StringValue() string {
 	switch m.MType {
 	case "gauge":

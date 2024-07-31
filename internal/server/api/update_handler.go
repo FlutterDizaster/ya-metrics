@@ -12,6 +12,20 @@ import (
 )
 
 // Handler для обноваления состояния метрики в репозитории.
+//
+// Swagger описание:
+// @Summary Update metric
+// @Description Update metric in DB
+// @Tags metrics
+// @Produce text/plain
+// @Param kind path string true "Metric kind"
+// @Param name path string true "Metric name"
+// @Param value path string true "Metric value"
+// @Success 200 {string} string "OK"
+// @Failure 400 {string} string "Bad request"
+// @Failure 500 {string} string "Error"
+// @Router /update/{kind}/{name}/{value} [post]
+// Конец Swagger описания.
 func (api *API) updateHandler(w http.ResponseWriter, req *http.Request) {
 	// парсинг URL запроса
 	kind := chi.URLParam(req, "kind")
@@ -37,6 +51,19 @@ func (api *API) updateHandler(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Метод обрабатывает POST-запросы на добавление метрики в репозиторий.
+//
+// Swagger описание:
+// @Summary Update metric
+// @Description Update metric in DB in JSON format
+// @Tags metrics
+// @Produce json
+// @Param metric body view.Metric true "Metric"
+// @Success 200 {object} view.Metric
+// @Failure 400 {string} string "Bad request"
+// @Failure 500 {string} string "Error"
+// @Router /update [post]
+// Конец Swagger описания.
 func (api *API) updateJSONHandler(w http.ResponseWriter, req *http.Request) {
 	var metric view.Metric
 	var buf bytes.Buffer

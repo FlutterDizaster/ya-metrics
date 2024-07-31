@@ -17,21 +17,27 @@ import (
 
 // TODO: Прокинуть контекст в resty для Graceful Shutdown
 
+// Интерфейс для буфера метрик.
 type Buffer interface {
+	// Метод для вытягивания всех метрик из буфера.
+	// Подразумевается, что после вызова буфер будет очищен.
 	Pull() ([]view.Metric, error)
 }
 
+// Настройки сервиса отправки метрик.
 type Settings struct {
-	Addr             string
-	RetryCount       int
-	RetryInterval    time.Duration
-	RetryMaxWaitTime time.Duration
-	ReportInterval   time.Duration
-	Key              string
-	Buf              Buffer
-	RateLimit        int
+	Addr             string        // Адрес сервера агрегации метрик
+	RetryCount       int           // Количество повторных попыток отправки метрик
+	RetryInterval    time.Duration // Интервал между повторными попытками
+	RetryMaxWaitTime time.Duration // Максимальное время ожидания между повторными попытками
+	ReportInterval   time.Duration // Интервал между отправками метрик
+	Key              string        // Хеш ключ
+	Buf              Buffer        // Буфер метрик
+	RateLimit        int           // Максимальное кол-во запросов в секунду
 }
 
+// Sender - сервис отправки метрик.
+// Должен быть создан через New.
 type Sender struct {
 	endpointAddr   string
 	client         *resty.Client
@@ -41,6 +47,7 @@ type Sender struct {
 	wpool          workerpool.WorkerPool
 }
 
+// Фабрика создания экземпляра Sender.
 func New(settings Settings) *Sender {
 	slog.Debug("Creating sender")
 	sender := &Sender{
@@ -57,6 +64,9 @@ func New(settings Settings) *Sender {
 	return sender
 }
 
+// Start - запуск сервиса отправки метрик.
+// Блокирует потов выполнения до завершения работы сервиса.
+// Завершает работу сервиса при завершении контекста.
 func (s *Sender) Start(ctx context.Context) error {
 	slog.Debug("Sender", slog.String("status", "start"))
 	ticker := time.NewTicker(s.reportInterval)

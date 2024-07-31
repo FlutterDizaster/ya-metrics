@@ -16,22 +16,30 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
+// Интерфейс для буфера метрик.
 type Buffer interface {
+	// Метод для добавления метрик в буфер.
 	Put([]view.Metric) error
+
+	// Метод для закрытия буфера.
 	Close()
 }
 
+// Settings хранит параметры сборщика метрик.
 type Settings struct {
-	PollInterval time.Duration
-	Buf          Buffer
+	PollInterval time.Duration // Интервал сбора метрик
+	Buf          Buffer        // Буфер метрик
 }
 
+// Telemetry - сервис сбора метрик.
+// Должен быть инициализирован с помощью New().
 type Telemetry struct {
 	pollInterval time.Duration
 	buf          Buffer
 	rnd          rand.Rand
 }
 
+// Функция создания экземпляра Telemetry.
 func New(settings Settings) *Telemetry {
 	randSource := rand.NewSource(time.Now().UnixNano())
 	return &Telemetry{
@@ -41,6 +49,7 @@ func New(settings Settings) *Telemetry {
 	}
 }
 
+// Функция запуска сервсиса. Перед использованием необходимо создать экземпляр Telemetry с помощью New().
 func (t *Telemetry) Start(ctx context.Context) error {
 	slog.Debug("Telemetry", slog.String("status", "start"))
 	ticker := time.NewTicker(t.pollInterval)

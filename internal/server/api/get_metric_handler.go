@@ -11,6 +11,19 @@ import (
 )
 
 // Handler для получения значения конкретной метрики по её типу и имени.
+//
+// Swagger описание:
+// @Summary Get metric
+// @Description Get metric
+// @Tags metrics
+// @Produce text/plain
+// @Param kind path string true "Metric kind"
+// @Param name path string true "Metric name"
+// @Success 200 {string} string "Metric value"
+// @Failure 404 {string} string "Metric not found"
+// @Failure 500 {string} string "Error"
+// @Router /value/{kind}/{name} [get]
+// Конец Swagger описания.
 func (api *API) getMetricHandler(w http.ResponseWriter, req *http.Request) {
 	// парсинг url запроса для получения типа и имени искомой метрики
 	kind := chi.URLParam(req, "kind")
@@ -32,6 +45,17 @@ func (api *API) getMetricHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Handler для получения значения конкретной метрики по её типу и имени в формате JSON.
+//
+// Swagger описание:
+// @Summary Get metric
+// @Description Get metric in JSON format
+// @Tags metrics
+// @Produce json
+// @Success 200 {object} view.Metric
+// @Failure 404 {string} string "Metric not found"
+// @Failure 500 {string} string "Error"
+// @Router /value [post]
+// Конец Swagger описания.
 func (api *API) getJSONMetricHandler(w http.ResponseWriter, req *http.Request) {
 	var reqMetric view.Metric
 	var buf bytes.Buffer

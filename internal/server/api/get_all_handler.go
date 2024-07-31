@@ -12,6 +12,16 @@ import (
 )
 
 // Handler отдающий таблицу со всеми имеющимися метриками и их значениями.
+//
+// Swagger описание:
+// @Summary Get all metrics
+// @Description Get all metrics
+// @Tags metrics
+// @Produce html/json
+// @Success 200 {array} view.Metric
+// @Failure 500 {string} string "Error"
+// @Router / [get]
+// Конец Swagger описания.
 func (api *API) getAllHandler(w http.ResponseWriter, r *http.Request) {
 	// Проверка на принимаемы Content-Type
 	if r.Header.Get("Accept") == "application/json" {
@@ -81,6 +91,7 @@ func (api *API) getAllHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getAllJSONHandler обрабатывает GET-запросы на получение таблицы со всеми имеющимися метриками в формате JSON.
 func (api *API) getAllJSONHandler(w http.ResponseWriter, _ *http.Request) {
 	metrics, err := api.storage.ReadAllMetrics()
 	if err != nil {

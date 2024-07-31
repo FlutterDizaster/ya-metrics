@@ -1,0 +1,222 @@
+basePath: /
+definitions:
+  view.Metric:
+    properties:
+      delta:
+        description: |-
+          Counter value
+          Required: false
+        type: integer
+      id:
+        description: |-
+          Metric ID
+          Required: true
+        type: string
+      type:
+        description: |-
+          Metric Type
+          Possible values: gauge, counter
+          Required: true
+        type: string
+      value:
+        description: |-
+          Gauge value
+          Required: false
+        type: number
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: dmitriy@loginoff.space
+    name: Dmitriy Loginov
+  description: API for getting and setting metrics
+  title: Ya-Metrics API
+  version: "0.3"
+paths:
+  /:
+    get:
+      description: Get all metrics
+      produces:
+      - html/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/view.Metric'
+            type: array
+        "500":
+          description: Error
+          schema:
+            type: string
+      summary: Get all metrics
+      tags:
+      - metrics
+  /ping:
+    get:
+      description: Ping DB donnection
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Error
+          schema:
+            type: string
+      summary: Ping
+      tags:
+      - health
+  /update:
+    post:
+      description: Update metric in DB in JSON format
+      parameters:
+      - description: Metric
+        in: body
+        name: metric
+        required: true
+        schema:
+          $ref: '#/definitions/view.Metric'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/view.Metric'
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "500":
+          description: Error
+          schema:
+            type: string
+      summary: Update metric
+      tags:
+      - metrics
+  /update/{kind}/{name}/{value}:
+    post:
+      description: Update metric in DB
+      parameters:
+      - description: Metric kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Metric value
+        in: path
+        name: value
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "500":
+          description: Error
+          schema:
+            type: string
+      summary: Update metric
+      tags:
+      - metrics
+  /updates:
+    post:
+      description: Update metrics in DB
+      parameters:
+      - description: Metrics
+        in: body
+        name: metrics
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/view.Metric'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/view.Metric'
+            type: array
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "500":
+          description: Error
+          schema:
+            type: string
+      summary: Update metrics
+      tags:
+      - metrics
+  /value:
+    post:
+      description: Get metric in JSON format
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/view.Metric'
+        "404":
+          description: Metric not found
+          schema:
+            type: string
+        "500":
+          description: Error
+          schema:
+            type: string
+      summary: Get metric
+      tags:
+      - metrics
+  /value/{kind}/{name}:
+    get:
+      description: Get metric
+      parameters:
+      - description: Metric kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Metric value
+          schema:
+            type: string
+        "404":
+          description: Metric not found
+          schema:
+            type: string
+        "500":
+          description: Error
+          schema:
+            type: string
+      summary: Get metric
+      tags:
+      - metrics
+swagger: "2.0"

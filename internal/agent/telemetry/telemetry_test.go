@@ -1,135 +1,118 @@
 package telemetry
 
-// import (
-// 	"context"
-// 	"testing"
-// 	"time"
+import (
+	"fmt"
+	"runtime"
+	"testing"
 
-// 	"github.com/FlutterDizaster/ya-metrics/internal/view"
-// 	"github.com/stretchr/testify/assert"
-// )
+	"github.com/FlutterDizaster/ya-metrics/internal/view"
+	"github.com/stretchr/testify/assert"
+)
 
-// type TestMetric struct {
-// 	Kind  string
-// 	Value string
-// }
+func TestTelemetry_collectMemStats(t *testing.T) {
+	type test struct {
+		name    string
+		metrics []view.Metric
+	}
 
-// type TestStorage struct {
-// 	Metrics []view.Metric
-// }
+	tests := []test{
+		{
+			name: "simple test",
+			metrics: []view.Metric{
+				{ID: "Alloc", MType: "gauge"},
+				{ID: "BuckHashSys", MType: "gauge"},
+				{ID: "Frees", MType: "gauge"},
+				{ID: "GCCPUFraction", MType: "gauge"},
+				{ID: "GCSys", MType: "gauge"},
+				{ID: "HeapAlloc", MType: "gauge"},
+				{ID: "HeapIdle", MType: "gauge"},
+				{ID: "HeapInuse", MType: "gauge"},
+				{ID: "HeapObjects", MType: "gauge"},
+				{ID: "HeapReleased", MType: "gauge"},
+				{ID: "HeapSys", MType: "gauge"},
+				{ID: "LastGC", MType: "gauge"},
+				{ID: "Lookups", MType: "gauge"},
+				{ID: "MCacheInuse", MType: "gauge"},
+				{ID: "MCacheSys", MType: "gauge"},
+				{ID: "MSpanInuse", MType: "gauge"},
+				{ID: "MSpanSys", MType: "gauge"},
+				{ID: "Mallocs", MType: "gauge"},
+				{ID: "NextGC", MType: "gauge"},
+				{ID: "NumForcedGC", MType: "gauge"},
+				{ID: "NumGC", MType: "gauge"},
+				{ID: "OtherSys", MType: "gauge"},
+				{ID: "PauseTotalNs", MType: "gauge"},
+				{ID: "StackInuse", MType: "gauge"},
+				{ID: "StackSys", MType: "gauge"},
+				{ID: "Sys", MType: "gauge"},
+				{ID: "TotalAlloc", MType: "gauge"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			telem := &Telemetry{}
 
-// func (ts *TestStorage) AddMetrics(metrics []view.Metric) {
-// 	ts.Metrics = append(ts.Metrics, metrics...)
-// }
+			metrics := telem.collectMemStats()
 
-// func TestMetricsCollector_CollectMetrics(t *testing.T) {
-// 	type fields struct {
-// 		metricsList []view.Metric
-// 		storage     TestStorage
-// 	}
+			for _, metric := range tt.metrics {
+				found := false
 
-// 	tests := []struct {
-// 		name   string
-// 		fields fields
-// 		want   int
-// 	}{
-// 		{
-// 			name: "simple test",
-// 			fields: fields{
-// 				metricsList: []view.Metric{
-// 					{
-// 						ID:     "Alloc",
-// 						MType:  "gauge",
-// 						Source: view.MemStats,
-// 					},
-// 					{
-// 						ID:     "Frees",
-// 						MType:  "gauge",
-// 						Source: view.MemStats,
-// 					},
-// 				},
-// 				storage: TestStorage{make([]view.Metric, 0)},
-// 			},
-// 			want: 4,
-// 		},
-// 		{
-// 			name: "wrong name test",
-// 			fields: fields{
-// 				metricsList: []view.Metric{
-// 					{
-// 						ID:     "wrong name",
-// 						MType:  "count",
-// 						Source: view.MemStats,
-// 					},
-// 				},
-// 				storage: TestStorage{make([]view.Metric, 0)},
-// 			},
-// 			want: 2,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			mc := NewMetricCollector(&tt.fields.storage, 2, tt.fields.metricsList)
+				for _, m := range metrics {
+					if m.ID == metric.ID {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found)
+			}
+		})
+	}
+}
 
-// 			mc.CollectMetrics()
-// 			assert.Len(t, tt.fields.storage.Metrics, tt.want)
-// 			//TODO: проверить, что метрики добавляются првильно
-// 		})
-// 	}
-// }
+func TestTelemetry_collectPCStats(t *testing.T) {
+	type test struct {
+		name    string
+		metrics []view.Metric
+	}
 
-// func TestMetricsCollector_Start(t *testing.T) {
-// 	type fields struct {
-// 		metricsList  []view.Metric
-// 		storage      TestStorage
-// 		pollInterval int
-// 	}
-// 	tests := []struct {
-// 		name         string
-// 		fields       fields
-// 		testDuration int
-// 		want         int
-// 	}{
-// 		{
-// 			name: "simple test",
-// 			fields: fields{
-// 				metricsList: []view.Metric{
-// 					{
-// 						ID:     "Alloc",
-// 						MType:  "gauge",
-// 						Source: view.MemStats,
-// 					},
-// 					{
-// 						ID:     "Frees",
-// 						MType:  "gauge",
-// 						Source: view.MemStats,
-// 					},
-// 				},
-// 				storage:      TestStorage{make([]view.Metric, 0)},
-// 				pollInterval: 1,
-// 			},
-// 			testDuration: 3,
-// 			want:         2,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			mc := NewMetricCollector(
-// 				&tt.fields.storage,
-// 				tt.fields.pollInterval,
-// 				tt.fields.metricsList,
-// 			)
+	tests := []test{
+		{
+			name: "simple test",
+			metrics: []view.Metric{
+				{ID: "TotalMemory", MType: view.KindGauge},
+				{ID: "FreeMemory", MType: view.KindGauge},
+				{ID: "UsedMemory", MType: view.KindGauge},
+			},
+		},
+	}
 
-// 			ctx, cancle := context.WithCancel(context.Background())
+	cpuCount := runtime.NumCPU()
 
-// 			go func() {
-// 				time.Sleep(time.Duration(tt.testDuration) * time.Second)
-// 				cancle()
-// 			}()
+	for _, tt := range tests {
+		for i := 0; i < cpuCount; i++ {
+			tt.metrics = append(tt.metrics, view.Metric{
+				ID:    fmt.Sprintf("CPUutilization%d", i+1),
+				MType: view.KindGauge,
+			})
+		}
 
-// 			mc.Start(ctx)
-// 			//TODO: Проверки
-// 			assert.Len(t, mc.metricsList, tt.want)
-// 		})
-// 	}
-// }
+		t.Run(tt.name, func(t *testing.T) {
+			telem := &Telemetry{}
+
+			metrics := telem.collectPCStats()
+
+			for _, metric := range tt.metrics {
+				found := false
+
+				for _, m := range metrics {
+					if m.ID == metric.ID {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found)
+			}
+		})
+	}
+}

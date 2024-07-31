@@ -8,11 +8,23 @@ import (
 	"strconv"
 	"syscall"
 
+	_ "net/http/pprof"
+
+	_ "github.com/FlutterDizaster/ya-metrics/swagger"
+
 	flag "github.com/spf13/pflag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
+
+// @title Ya-Metrics API
+// @version 0.3
+// @description API for getting and setting metrics
+// @host localhost:8080
+// @BasePath /
+// @contact.name Dmitriy Loginov
+// @contact.email dmitriy@loginoff.space
 
 func main() {
 	os.Exit(mainReturnWithCode())
@@ -20,7 +32,7 @@ func main() {
 
 func mainReturnWithCode() int {
 	// initialize logger
-	logger.New()
+	logger.New(slog.LevelDebug)
 
 	// Создание структуры с настройками сервера
 	settings := parseConfig()
