@@ -15,10 +15,6 @@ import (
 )
 
 func main() {
-	os.Exit(mainReturnWithCode())
-}
-
-func mainReturnWithCode() int {
 	logger.New(slog.LevelDebug)
 
 	// Создание сруктуры с настройкаами агента
@@ -28,7 +24,7 @@ func mainReturnWithCode() int {
 	agt, err := agent.New(settings)
 	if err != nil {
 		slog.Error("Creating agent error", slog.String("error", err.Error()))
-		return 1
+		return
 	}
 
 	// Создание контекста отмены
@@ -45,10 +41,8 @@ func mainReturnWithCode() int {
 	// Запуск агента
 	if err = agt.Start(ctx); err != nil {
 		slog.Error("Agent startup error", slog.String("error", err.Error()))
-		return 1
+		return
 	}
-
-	return 0
 }
 
 func parseConfig() agent.Settings {

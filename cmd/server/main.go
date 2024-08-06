@@ -27,10 +27,6 @@ import (
 // @contact.email dmitriy@loginoff.space
 
 func main() {
-	os.Exit(mainReturnWithCode())
-}
-
-func mainReturnWithCode() int {
 	// initialize logger
 	logger.New(slog.LevelDebug)
 
@@ -40,7 +36,7 @@ func mainReturnWithCode() int {
 	srv, err := server.New(settings)
 	if err != nil {
 		slog.Error("Creating server error", slog.String("error", err.Error()))
-		return 1
+		return
 	}
 	// Создание контекста отмены
 	ctx, cancel := signal.NotifyContext(
@@ -56,10 +52,8 @@ func mainReturnWithCode() int {
 	// Запуск сервера
 	if err = srv.Start(ctx); err != nil {
 		slog.Error("Server startup error", slog.String("error", err.Error()))
-		return 1
+		return
 	}
-
-	return 0
 }
 
 func parseConfig() server.Settings {
