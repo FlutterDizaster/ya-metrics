@@ -15,7 +15,15 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
+	"github.com/FlutterDizaster/ya-metrics/pkg/appinfoprinter"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
+)
+
+//nolint:gochecknoglobals // build info
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 // @title Ya-Metrics API
@@ -29,6 +37,18 @@ import (
 func main() {
 	// initialize logger
 	logger.New(slog.LevelDebug)
+
+	// Print AppInfo
+	appInfo := appinfoprinter.AppInfo{
+		Version: buildVersion,
+		Date:    buildDate,
+		Commit:  buildCommit,
+	}
+
+	err := appinfoprinter.PrintAppInfo(appInfo)
+	if err != nil {
+		slog.Error("PrintAppInfo error", slog.String("error", err.Error()))
+	}
 
 	// Создание структуры с настройками сервера
 	settings := parseConfig()

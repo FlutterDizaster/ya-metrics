@@ -11,11 +11,32 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/agent"
+	"github.com/FlutterDizaster/ya-metrics/pkg/appinfoprinter"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
+//nolint:gochecknoglobals // build info
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 func main() {
+	// initialize logger
 	logger.New(slog.LevelDebug)
+
+	// Print AppInfo
+	appInfo := appinfoprinter.AppInfo{
+		Version: buildVersion,
+		Date:    buildDate,
+		Commit:  buildCommit,
+	}
+
+	err := appinfoprinter.PrintAppInfo(appInfo)
+	if err != nil {
+		slog.Error("PrintAppInfo error", slog.String("error", err.Error()))
+	}
 
 	// Создание сруктуры с настройкаами агента
 	settings := parseConfig()
