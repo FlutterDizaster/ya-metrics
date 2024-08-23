@@ -11,15 +11,32 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/agent"
+	"github.com/FlutterDizaster/ya-metrics/pkg/appinfoprinter"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
-func main() {
-	os.Exit(mainReturnWithCode())
-}
+//nolint:gochecknoglobals // build info
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
 
-func mainReturnWithCode() int {
+func main() {
+	// initialize logger
 	logger.New(slog.LevelDebug)
+
+	// Print AppInfo
+	appInfo := appinfoprinter.AppInfo{
+		Version: buildVersion,
+		Date:    buildDate,
+		Commit:  buildCommit,
+	}
+
+	err := appinfoprinter.PrintAppInfo(appInfo)
+	if err != nil {
+		slog.Error("PrintAppInfo error", slog.String("error", err.Error()))
+	}
 
 	// Создание сруктуры с настройкаами агента
 	settings := parseConfig()
@@ -28,7 +45,7 @@ func mainReturnWithCode() int {
 	agt, err := agent.New(settings)
 	if err != nil {
 		slog.Error("Creating agent error", slog.String("error", err.Error()))
-		return 1
+		return
 	}
 
 	// Создание контекста отмены
@@ -45,10 +62,8 @@ func mainReturnWithCode() int {
 	// Запуск агента
 	if err = agt.Start(ctx); err != nil {
 		slog.Error("Agent startup error", slog.String("error", err.Error()))
-		return 1
+		return
 	}
-
-	return 0
 }
 
 func parseConfig() agent.Settings {

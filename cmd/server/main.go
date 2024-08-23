@@ -15,7 +15,15 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
+	"github.com/FlutterDizaster/ya-metrics/pkg/appinfoprinter"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
+)
+
+//nolint:gochecknoglobals // build info
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 // @title Ya-Metrics API
@@ -27,12 +35,20 @@ import (
 // @contact.email dmitriy@loginoff.space
 
 func main() {
-	os.Exit(mainReturnWithCode())
-}
-
-func mainReturnWithCode() int {
 	// initialize logger
 	logger.New(slog.LevelDebug)
+
+	// Print AppInfo
+	appInfo := appinfoprinter.AppInfo{
+		Version: buildVersion,
+		Date:    buildDate,
+		Commit:  buildCommit,
+	}
+
+	err := appinfoprinter.PrintAppInfo(appInfo)
+	if err != nil {
+		slog.Error("PrintAppInfo error", slog.String("error", err.Error()))
+	}
 
 	// Создание структуры с настройками сервера
 	settings := parseConfig()
@@ -40,7 +56,7 @@ func mainReturnWithCode() int {
 	srv, err := server.New(settings)
 	if err != nil {
 		slog.Error("Creating server error", slog.String("error", err.Error()))
-		return 1
+		return
 	}
 	// Создание контекста отмены
 	ctx, cancel := signal.NotifyContext(
@@ -56,10 +72,8 @@ func mainReturnWithCode() int {
 	// Запуск сервера
 	if err = srv.Start(ctx); err != nil {
 		slog.Error("Server startup error", slog.String("error", err.Error()))
-		return 1
+		return
 	}
-
-	return 0
 }
 
 func parseConfig() server.Settings {

@@ -1,0 +1,26 @@
+{{define "metrics"}}
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>Metrics</title>
+	</head>
+	<body>
+		<table>
+			<th>Kind</th>
+			<th>Name</th>
+			<th>Value</th>
+			{{range .}}
+				<tr>
+					<td>{{.MType}}</td>
+					<td>{{.ID}}</td>
+					{{if eq .MType "gauge"}}
+						<td>{{.Value}}</td>
+					{{else if eq .MType "counter"}}
+						<td>{{.Delta}}</td>
+					{{end}}
+				</tr>
+			{{end}}
+		</table>
+	</body>
+</html>
+{{end}}
