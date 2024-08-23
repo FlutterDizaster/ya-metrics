@@ -2,6 +2,7 @@ package mainosexit
 
 import (
 	"go/ast"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -19,10 +20,9 @@ var Analyzer = &analysis.Analyzer{
 	Run:  run,
 }
 
-//nolint:govet // shadow declaration of 'ok' not affect on logic
 func isOsExit(call *ast.CallExpr) bool {
-	if selExpr, ok := call.Fun.(*ast.SelectorExpr); ok {
-		if ident, ok := selExpr.X.(*ast.Ident); ok &&
+	if selExpr, fOk := call.Fun.(*ast.SelectorExpr); fOk {
+		if ident, sOk := selExpr.X.(*ast.Ident); sOk &&
 			ident.Name == "os" &&
 			selExpr.Sel.Name == "Exit" {
 			return true
@@ -31,7 +31,7 @@ func isOsExit(call *ast.CallExpr) bool {
 	return false
 }
 
-//nolint:govet, nilnil // shadow declaration of 'ok' not affect on logic
+//nolint:nilnil // nilnil
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
 		// Проверка на название пакета
@@ -41,10 +41,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 		ast.Inspect(file, func(n ast.Node) bool {
 			// Проверка на функцию main.
-			if fn, ok := n.(*ast.FuncDecl); ok && fn.Name.Name == "main" {
+			if fn, ok := n.(*ast.FuncDecl); ok && strings.HasPrefix(fn.Name.Name, "main") {
 				// Проходим именно по телу функции main.
 				ast.Inspect(fn.Body, func(n ast.Node) bool {
-					if callExpr, ok := n.(*ast.CallExpr); ok {
+					if callExpr, cOk := n.(*ast.CallExpr); cOk {
 						// Проверка на вызов функции os.Exit.
 						if isOsExit(callExpr) {
 							pass.Reportf(callExpr.Pos(), "os.Exit in main function")

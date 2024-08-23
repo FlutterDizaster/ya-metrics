@@ -32,9 +32,9 @@ func TestPrintAppInfo(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			originalStdout := os.Stdout
+		originalStdout := os.Stdout
 
+		t.Run(tt.name, func(t *testing.T) {
 			reader, writer, err := os.Pipe()
 			require.NoError(t, err)
 
@@ -52,7 +52,9 @@ func TestPrintAppInfo(t *testing.T) {
 			reader.Close()
 
 			require.Equal(t, tt.wantOutput, buf.String())
+		})
 
+		t.Cleanup(func() {
 			os.Stdout = originalStdout
 		})
 	}
