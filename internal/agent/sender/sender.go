@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -15,8 +17,6 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-// TODO: Прокинуть контекст в resty для Graceful Shutdown
-
 // Интерфейс для буфера метрик.
 type Buffer interface {
 	// Метод для вытягивания всех метрик из буфера.
@@ -26,14 +26,15 @@ type Buffer interface {
 
 // Настройки сервиса отправки метрик.
 type Settings struct {
-	Addr             string        // Адрес сервера агрегации метрик
-	RetryCount       int           // Количество повторных попыток отправки метрик
-	RetryInterval    time.Duration // Интервал между повторными попытками
-	RetryMaxWaitTime time.Duration // Максимальное время ожидания между повторными попытками
-	ReportInterval   time.Duration // Интервал между отправками метрик
-	Key              string        // Хеш ключ
-	Buf              Buffer        // Буфер метрик
-	RateLimit        int           // Максимальное кол-во запросов в секунду
+	Addr             string         // Адрес сервера агрегации метрик
+	RetryCount       int            // Количество повторных попыток отправки метрик
+	RetryInterval    time.Duration  // Интервал между повторными попытками
+	RetryMaxWaitTime time.Duration  // Максимальное время ожидания между повторными попытками
+	ReportInterval   time.Duration  // Интервал между отправками метрик
+	HashKey          string         // Хеш ключ
+	Buf              Buffer         // Буфер метрик
+	RateLimit        int            // Максимальное кол-во запросов в секунду
+	RSAKey           *rsa.PublicKey // Сертификат TLS
 }
 
 // Sender - сервис отправки метрик.
@@ -42,9 +43,10 @@ type Sender struct {
 	endpointAddr   string
 	client         *resty.Client
 	reportInterval time.Duration
-	key            string
+	hashKey        string
 	buf            Buffer
 	wpool          workerpool.WorkerPool
+	rsaKey         *rsa.PublicKey
 }
 
 // Фабрика создания экземпляра Sender.
@@ -54,9 +56,10 @@ func New(settings Settings) *Sender {
 		endpointAddr:   fmt.Sprintf("http://%s/updates/", settings.Addr),
 		client:         resty.New(),
 		reportInterval: settings.ReportInterval,
-		key:            settings.Key,
+		hashKey:        settings.HashKey,
 		buf:            settings.Buf,
 		wpool:          *workerpool.New(settings.RateLimit),
+		rsaKey:         settings.RSAKey,
 	}
 	sender.client.SetRetryCount(settings.RetryCount)
 	sender.client.SetRetryWaitTime(settings.RetryInterval)
@@ -115,20 +118,31 @@ func (s *Sender) send(ctx context.Context) {
 		SetContext(ctx)
 
 	// Подсчет хеша при необходимости
-	if s.key != "" {
-		slog.Debug("Calculating hash")
-		hash := validation.CalculateHashSHA256(metricsBytes, []byte(s.key))
+	if s.hashKey != "" {
+		hash := validation.CalculateHashSHA256(metricsBytes, []byte(s.hashKey))
 		req.SetHeader("HashSHA256", hex.EncodeToString(hash))
 	}
 
 	// Сжатие метрики
 	data, err := compressData(metricsBytes)
 	if err != nil {
-		req.SetBody(metricsBytes)
+		slog.Error("compression error", "error", err)
+		data = metricsBytes
 	} else {
-		req.SetHeader("Content-Encoding", "gzip").
-			SetBody(data)
+		req.SetHeader("Content-Encoding", "gzip")
 	}
+
+	// Шифрование при необходимости
+	if s.rsaKey != nil {
+		encryptedData, encErr := rsa.EncryptPKCS1v15(rand.Reader, s.rsaKey, data)
+		if encErr != nil {
+			slog.Error("encryption error", "error", err)
+		} else {
+			data = encryptedData
+		}
+	}
+
+	req.SetBody(data)
 
 	// Отправка запроса
 	err = s.wpool.Do(func() {

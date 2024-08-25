@@ -30,7 +30,8 @@ type Settings struct {
 	FileStoragePath string // Путь к файлу бекапа данных
 	Restore         bool   // Флаг восстановления данных. Если true, то данные будут восстановлены из бекапа
 	PGConnString    string // Строка подключения к базе данных
-	Key             string // Ключ шифрования данных
+	Key             string // Ключ хеширования данных
+	CryptoKey       string // Ключ шифрования
 }
 
 // Server - структура, которая представляет собоей сервер метрик.
@@ -75,19 +76,35 @@ func New(settings Settings) (*Server, error) {
 		slog.Error("error creating storage. forcing exit.", slog.String("error", err.Error()))
 		return nil, err
 	}
+
 	// Создание списка Middlewares
 	middlewares := []middleware.Middleware{
 		&middleware.Logger{},
-		&middleware.Decompressor{},
-		&middleware.Compressor{
-			MinDataLength: 1,
-		},
 	}
+
+	// Получение RSA ключа и добавление в список Middlewares декодера
+	if settings.CryptoKey != "" {
+		key, crErr := utils.ReadPrivateKey(settings.CryptoKey)
+		if crErr != nil {
+			return nil, crErr
+		}
+		middlewares = append(middlewares, &middleware.RSADecoder{Key: key})
+	}
+
+	// Добавление в список Middlewares валидатора
 	if settings.Key != "" {
 		middlewares = append(middlewares, &middleware.Validator{
 			Key: []byte(settings.Key),
 		})
 	}
+
+	// Добавление в список Middlewares прочих Middleware
+	middlewares = append(middlewares,
+		&middleware.Decompressor{},
+		&middleware.Compressor{
+			MinDataLength: 1,
+		})
+
 	// configure router settings
 	routerSettings := &api.Settings{
 		Addr:        settings.URL,

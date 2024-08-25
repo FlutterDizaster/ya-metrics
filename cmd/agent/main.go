@@ -70,6 +70,7 @@ func parseConfig() agent.Settings {
 	const (
 		defaultServerAddr         = "localhost:8080"
 		defaultHashKey            = ""
+		defaultCryptoKey          = ""
 		defaultRetryCount     int = 3
 		defaultRetryInterval  int = 1
 		defaultRetryMaxWait   int = 9
@@ -92,6 +93,13 @@ func parseConfig() agent.Settings {
 		"k",
 		defaultHashKey,
 		"Hash key",
+	)
+	flag.StringVarP(
+		&settings.CryptoKey,
+		"crypto-key",
+		"c",
+		defaultCryptoKey,
+		"Crypto key",
 	)
 	flag.IntVarP(
 		&settings.ReportInterval,
@@ -131,6 +139,10 @@ func lookupEnvs(settings agent.Settings) agent.Settings {
 	envHashKey, ok := os.LookupEnv("KEY")
 	if ok {
 		settings.HashKey = envHashKey
+	}
+	envCryptoKey, ok := os.LookupEnv("CRYPTO_KEY")
+	if ok {
+		settings.CryptoKey = envCryptoKey
 	}
 	envReportInterval, ok := lookupIntEnv("REPORT_INTERVAL")
 	if ok {

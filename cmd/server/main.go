@@ -79,6 +79,7 @@ func main() {
 func parseConfig() server.Settings {
 	const (
 		defaultEndpoint        = "localhost:8080"
+		defaultCryptoKey       = ""
 		defaultStoreInterval   = 300
 		defaultFileStoragePath = "/tmp/metrics-db.json"
 		defaultRestore         = true
@@ -105,6 +106,13 @@ func parseConfig() server.Settings {
 		"d",
 		defaultPGConnString,
 		"Postgres connection string",
+	)
+	flag.StringVarP(
+		&settings.CryptoKey,
+		"crypto-key",
+		"c",
+		defaultCryptoKey,
+		"Crypto key",
 	)
 	flag.BoolVarP(
 		&settings.Restore,
@@ -145,6 +153,10 @@ func lookupEnvs(settings server.Settings) server.Settings {
 	envPGConnString, ok := os.LookupEnv("DATABASE_DSN")
 	if ok {
 		settings.PGConnString = envPGConnString
+	}
+	envCryptoKey, ok := os.LookupEnv("CRYPTO_KEY")
+	if ok {
+		settings.CryptoKey = envCryptoKey
 	}
 	envRestore, ok := lookupBoolEnv("RESTORE")
 	if ok {
