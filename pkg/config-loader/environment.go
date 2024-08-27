@@ -14,7 +14,7 @@ func parseEnvs(rv reflect.Value, rt reflect.Type) error {
 		fieldV := rv.Elem().FieldByName(fieldT.Name)
 
 		// Пропуск неизменяемых полей
-		if !fieldV.CanSet() || !fieldV.IsValid() {
+		if !fieldV.CanSet() || !fieldV.IsValid() || fieldT.Tag.Get(tagEnv) == "" {
 			continue
 		}
 

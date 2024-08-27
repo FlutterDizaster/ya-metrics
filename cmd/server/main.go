@@ -5,17 +5,15 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
 	_ "net/http/pprof"
 
 	_ "github.com/FlutterDizaster/ya-metrics/swagger"
 
-	flag "github.com/spf13/pflag"
-
 	"github.com/FlutterDizaster/ya-metrics/internal/server"
 	"github.com/FlutterDizaster/ya-metrics/pkg/appinfoprinter"
+	configloader "github.com/FlutterDizaster/ya-metrics/pkg/config-loader"
 	"github.com/FlutterDizaster/ya-metrics/pkg/logger"
 )
 
@@ -51,7 +49,13 @@ func main() {
 	}
 
 	// Создание структуры с настройками сервера
-	settings := parseConfig()
+	settings := server.Settings{}
+	err = configloader.LoadConfig(&settings)
+	if err != nil {
+		slog.Error("Loading config error", slog.String("error", err.Error()))
+		return
+	}
+
 	// Создание сервера
 	srv, err := server.New(settings)
 	if err != nil {
@@ -74,136 +78,4 @@ func main() {
 		slog.Error("Server startup error", slog.String("error", err.Error()))
 		return
 	}
-}
-
-func parseConfig() server.Settings {
-	const (
-		defaultEndpoint        = "localhost:8080"
-		defaultCryptoKey       = ""
-		defaultStoreInterval   = 300
-		defaultFileStoragePath = "/tmp/metrics-db.json"
-		defaultRestore         = true
-		defaultPGConnString    = ""
-	)
-	var settings server.Settings
-	flag.StringVarP(
-		&settings.URL,
-		"address",
-		"a",
-		defaultEndpoint,
-		"Server endpoint addres. Default localhost:8080",
-	)
-	flag.StringVarP(
-		&settings.FileStoragePath,
-		"file",
-		"f",
-		defaultFileStoragePath,
-		"Backup file path. Default /tmp/metrics-db.json",
-	)
-	flag.StringVarP(
-		&settings.PGConnString,
-		"dbconn",
-		"d",
-		defaultPGConnString,
-		"Postgres connection string",
-	)
-	flag.StringVarP(
-		&settings.CryptoKey,
-		"crypto-key",
-		"c",
-		defaultCryptoKey,
-		"Crypto key",
-	)
-	flag.BoolVarP(
-		&settings.Restore,
-		"restore",
-		"r",
-		defaultRestore,
-		"the flag indicates whether a backup should be loaded from a file",
-	)
-	flag.IntVarP(
-		&settings.StoreInterval,
-		"interval",
-		"i",
-		defaultStoreInterval,
-		"Time between backups in seconds. Default 300",
-	)
-	flag.StringVarP(
-		&settings.Key,
-		"key",
-		"k",
-		"",
-		"Hash key",
-	)
-
-	flag.Parse()
-
-	return lookupEnvs(settings)
-}
-
-func lookupEnvs(settings server.Settings) server.Settings {
-	envEndpoint, ok := os.LookupEnv("ADDRESS")
-	if ok {
-		settings.URL = envEndpoint
-	}
-	envFileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH")
-	if ok {
-		settings.FileStoragePath = envFileStoragePath
-	}
-	envPGConnString, ok := os.LookupEnv("DATABASE_DSN")
-	if ok {
-		settings.PGConnString = envPGConnString
-	}
-	envCryptoKey, ok := os.LookupEnv("CRYPTO_KEY")
-	if ok {
-		settings.CryptoKey = envCryptoKey
-	}
-	envRestore, ok := lookupBoolEnv("RESTORE")
-	if ok {
-		settings.Restore = envRestore
-	}
-	envStoreInterval, ok := lookupIntEnv("STORE_INTERVAL")
-	if ok {
-		settings.StoreInterval = envStoreInterval
-	}
-	envHashKey, ok := os.LookupEnv("KEY")
-	if ok {
-		settings.Key = envHashKey
-	}
-
-	return settings
-}
-
-func lookupIntEnv(name string) (int, bool) {
-	env, ok := os.LookupEnv(name)
-	if !ok {
-		return 0, false
-	}
-	val, err := strconv.Atoi(env)
-	if err != nil {
-		slog.Error(
-			"wrong env type",
-			slog.String("variable", name),
-			slog.String("expected type", "integer"),
-		)
-		return 0, false
-	}
-	return val, true
-}
-
-func lookupBoolEnv(name string) (bool, bool) {
-	env, ok := os.LookupEnv(name)
-	if !ok {
-		return false, false
-	}
-	val, err := strconv.ParseBool(env)
-	if err != nil {
-		slog.Error(
-			"wrong env type",
-			slog.String("variable", name),
-			slog.String("expected type", "boolean"),
-		)
-		return false, false
-	}
-	return val, true
 }

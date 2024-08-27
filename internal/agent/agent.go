@@ -20,15 +20,32 @@ type IService interface {
 
 // Settings - настройки агента.
 type Settings struct {
-	ServerAddr       string // Адрес сервера агрегатора метрик
-	HashKey          string // Ключ для вычисления Hash суммы
-	RetryCount       int    // Количество повторных попыток запроса к серверу
-	RetryInterval    int    // Интервал между повторными попытками
-	RetryMaxWaitTime int    // Максимальное время ожидания между повторными попытками
-	ReportInterval   int    // Интервал между отправками метрик
-	PollInterval     int    // Интервал между получением метрик
-	RateLimit        int    // Ограничение на количество запросов в секунду
-	CryptoKey        string // Ключ шифрования
+	// Адрес сервера агрегатора метрик
+	ServerAddr string `name:"address" short:"a" default:"localhost:8080" usage:"server addres" env:"ADDRESS"`
+
+	// Ключ для вычисления Hash суммы
+	HashKey string `name:"key" short:"k" default:"" usage:"hash key" env:"KEY"`
+
+	// Количество повторных попыток запроса к серверу
+	RetryCount int `default:"3"`
+
+	// Интервал между повторными попытками
+	RetryInterval int `default:"1"`
+
+	// Максимальное время ожидания между повторными попытками
+	RetryMaxWaitTime int `default:"9"`
+
+	// Интервал между отправками метрик
+	ReportInterval int `name:"report" short:"r" default:"10" usage:"report interval" env:"REPORT_INTERVAL"`
+
+	// Интервал между получением метрик
+	PollInterval int `name:"poll" short:"p" default:"2" usage:"poll interval" env:"POLL_INTERVAL"`
+
+	// Ограничение на количество запросов в секунду
+	RateLimit int `name:"rate-limit" short:"l" default:"1" usage:"rate limit" env:"RATE_LIMIT"`
+
+	// Ключ шифрования
+	CryptoKey string `name:"crypto-key" short:"s" default:"" usage:"public RSA key file" env:"CRYPTO_KEY"`
 }
 
 // Agent управляет запуском сервисов по сбору и отправки метрик.

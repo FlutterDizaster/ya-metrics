@@ -25,13 +25,28 @@ type IStorageService interface {
 
 // Settings хранит параметры необходимые для создания экземпляра Server.
 type Settings struct {
-	URL             string // URL адрес сервера
-	StoreInterval   int    // Интервал сохранения данных в хранилище
-	FileStoragePath string // Путь к файлу бекапа данных
-	Restore         bool   // Флаг восстановления данных. Если true, то данные будут восстановлены из бекапа
-	PGConnString    string // Строка подключения к базе данных
-	Key             string // Ключ хеширования данных
-	CryptoKey       string // Ключ шифрования
+
+	// URL адрес сервера
+	URL string `name:"address" short:"a" default:"localhost:8080" env:"ADDRESS" usage:"Server endpoint with port"`
+
+	// Интервал сохранения данных в хранилище
+	StoreInterval int `name:"interval" short:"i" default:"300" env:"STORE_INTERVAL" usage:"Interval to backup metrics"`
+
+	// Путь к файлу бекапа данных
+	//nolint:lll // tags too long. idk how to fix that
+	FileStoragePath string `name:"file" short:"f" default:"/tmp/metrics-db.json" env:"FILE_STORAGE_PATH" usage:"File path to backup"`
+
+	// Флаг восстановления данных. Если true, то данные будут восстановлены из бекапа
+	Restore bool `name:"restore" short:"r" default:"false" env:"RESTORE" usage:"Restore metrics from backup"`
+
+	// Строка подключения к базе данных
+	PGConnString string `name:"dbconn" short:"d" default:"" env:"DATABASE_DSN" usage:"Postgres connection string"`
+
+	// Ключ хеширования данных
+	Key string `name:"key" short:"k" default:"" env:"KEY" usage:"Hash key"`
+
+	// Ключ шифрования
+	CryptoKey string `name:"crypto-key" short:"c" default:"" env:"CRYPTO_KEY" usage:"Private RSA key file"`
 }
 
 // Server - структура, которая представляет собоей сервер метрик.
