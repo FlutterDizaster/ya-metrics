@@ -7,8 +7,10 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
@@ -47,6 +49,7 @@ type Sender struct {
 	buf            Buffer
 	wpool          workerpool.WorkerPool
 	rsaKey         *rsa.PublicKey
+	hostAddr       string
 }
 
 // Фабрика создания экземпляра Sender.
@@ -64,7 +67,49 @@ func New(settings Settings) *Sender {
 	sender.client.SetRetryCount(settings.RetryCount)
 	sender.client.SetRetryWaitTime(settings.RetryInterval)
 	sender.client.SetRetryMaxWaitTime(settings.RetryMaxWaitTime)
+
+	hostAddr, err := getHostAddr()
+	if err != nil {
+		slog.Error("failed get host address", "error", err)
+	}
+	sender.hostAddr = hostAddr
+
 	return sender
+}
+
+// getHostAddr - получение локального адреса хоста.
+// В случае ошибки возвращается пустая строка.
+// Предпологается, что локальная сеть включает в себя адреса между 192.168.0.0 и 192.168.255.255.
+func getHostAddr() (string, error) {
+	// Получение списка адресов хоста
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+
+	// Создание экземпляра IPNet для локальной сети
+	localNet := &net.IPNet{
+		IP:   net.IPv4(192, 168, 0, 0),
+		Mask: net.IPv4Mask(255, 255, 0, 0),
+	}
+
+	// Поиск локального адреса хоста
+	for _, addr := range addrs {
+		// Проверка типа адреса и преобразование в IPNet
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			// Проверка, что адрес является IPv4
+			if ipnet.IP.To4() == nil {
+				continue
+			}
+
+			// Проверка, что адрес принадлежит локальной сети
+			if localNet.Contains(ipnet.IP) {
+				return ipnet.IP.String(), nil
+			}
+		}
+	}
+
+	return "", errors.New("host address not found")
 }
 
 // Start - запуск сервиса отправки метрик.
@@ -142,7 +187,15 @@ func (s *Sender) send(ctx context.Context) {
 		}
 	}
 
+	// Установка тела запроса
 	req.SetBody(data)
+
+	// Установка X-Real-IP
+	//
+	// Устанавливается именно локальный адрес, так как даже если запрос
+	// будет уходить во внешнюю сеть, то установкой правильного X-Real-IP должен
+	// будет заниматься прокси сервер стоящий перед сервером обработчиком метрик.
+	req.SetHeader("X-Real-IP", s.hostAddr)
 
 	// Отправка запроса
 	err = s.wpool.Do(func() {
