@@ -10,7 +10,7 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/sender"
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/telemetry"
 	"github.com/FlutterDizaster/ya-metrics/internal/application"
-	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
+	pemreader "github.com/FlutterDizaster/ya-metrics/pkg/pem-reader"
 )
 
 // Интерфейс IService описывает объекты, которые могут быть запущены как отдельные потоки приложения.
@@ -70,9 +70,9 @@ func New(settings Settings) (*Agent, error) {
 	}
 	tlm := telemetry.New(telemetrySettings)
 
-	rsaKey, err := utils.ReadPublicKey(settings.CryptoKey)
+	rsaKey, err := pemreader.ReadPublicKey(settings.CryptoKey)
 	if err != nil {
-		if errors.Is(err, utils.ErrReadFile) {
+		if errors.Is(err, pemreader.ErrReadFile) {
 			return nil, err
 		}
 	}

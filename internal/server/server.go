@@ -3,12 +3,14 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/application"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/postgres"
+	pemreader "github.com/FlutterDizaster/ya-metrics/pkg/pem-reader"
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 )
 
@@ -47,6 +49,9 @@ type Settings struct {
 
 	// Ключ шифрования
 	CryptoKey string `name:"crypto-key" short:"c" default:"" env:"CRYPTO_KEY" usage:"Private RSA key file"`
+
+	// Разрешенная подсеть для подключения к серверу
+	TrustedSubnet string `name:"trusted_subnet" short:"t" default:"" env:"TRUSTED_SUBNET" usage:"Trusted subnet CIDR"`
 }
 
 // Server - структура, которая представляет собоей сервер метрик.
@@ -92,33 +97,11 @@ func New(settings Settings) (*Server, error) {
 		return nil, err
 	}
 
-	// Создание списка Middlewares
-	middlewares := []middleware.Middleware{
-		&middleware.Logger{},
+	// configure middlewares
+	middlewares, err := setupMiddlewares(settings)
+	if err != nil {
+		return nil, err
 	}
-
-	// Получение RSA ключа и добавление в список Middlewares декодера
-	if settings.CryptoKey != "" {
-		key, crErr := utils.ReadPrivateKey(settings.CryptoKey)
-		if crErr != nil {
-			return nil, crErr
-		}
-		middlewares = append(middlewares, &middleware.RSADecoder{Key: key})
-	}
-
-	// Добавление в список Middlewares валидатора
-	if settings.Key != "" {
-		middlewares = append(middlewares, &middleware.Validator{
-			Key: []byte(settings.Key),
-		})
-	}
-
-	// Добавление в список Middlewares прочих Middleware
-	middlewares = append(middlewares,
-		&middleware.Decompressor{},
-		&middleware.Compressor{
-			MinDataLength: 1,
-		})
 
 	// configure router settings
 	routerSettings := &api.Settings{
@@ -142,4 +125,52 @@ func New(settings Settings) (*Server, error) {
 
 	slog.Debug("Application instance created", slog.String("storage mode", storageMode))
 	return server, nil
+}
+
+func setupMiddlewares(settings Settings) ([]middleware.Middleware, error) {
+	// Создание списка Middlewares
+	middlewares := []middleware.Middleware{
+		&middleware.Logger{},
+	}
+
+	// Добавление в список Middlewares AccessFilter
+	if settings.TrustedSubnet != "" {
+		// Парсинг CIDR
+		_, trustedSubnet, tsErr := net.ParseCIDR(settings.TrustedSubnet)
+		if tsErr != nil {
+			return nil, tsErr
+		}
+
+		// Добавление в список Middlewares AccessFilter
+		middlewares = append(middlewares, &middleware.AccessFilter{
+			TrustedSubnet:    trustedSubnet,
+			GetIPFromHeaders: true,
+		})
+	}
+
+	// Получение RSA ключа и добавление в список Middlewares декодера
+	if settings.CryptoKey != "" {
+		key, crErr := pemreader.ReadPrivateKey(settings.CryptoKey)
+		if crErr != nil {
+			return nil, crErr
+		}
+		middlewares = append(middlewares, &middleware.RSADecoder{Key: key})
+	}
+
+	// Добавление в список Middlewares валидатора
+	if settings.Key != "" {
+		middlewares = append(middlewares, &middleware.Validator{
+			Key: []byte(settings.Key),
+		})
+	}
+
+	// Добавление в список Middlewares прочих Middleware
+	middlewares = append(middlewares,
+		&middleware.Decompressor{},
+		&middleware.Compressor{
+			MinDataLength: 1,
+		},
+	)
+
+	return middlewares, nil
 }

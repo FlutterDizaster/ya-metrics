@@ -1,4 +1,4 @@
-package utils
+package pemreader
 
 import "errors"
 
