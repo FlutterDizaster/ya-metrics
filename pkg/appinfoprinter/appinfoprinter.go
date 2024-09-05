@@ -1,6 +1,7 @@
 package appinfoprinter
 
 import (
+	"embed"
 	"html/template"
 	"os"
 )
@@ -11,13 +12,16 @@ type AppInfo struct {
 	Commit  string
 }
 
-const appInfoTemplate = `Build version: {{if .Version}}{{.Version}}{{else}}N/A{{end}}
-Build date: {{if .Date}}{{.Date}}{{else}}N/A{{end}}
-Build commit: {{if .Commit}}{{.Commit}}{{else}}N/A{{end}}
-`
+//go:embed templates/appinfo.tmpl
+var appInfoTemplateFS embed.FS
 
 func PrintAppInfo(info AppInfo) error {
-	tmpl := template.Must(template.New("appinfo").Parse(appInfoTemplate))
+	appInfoTemplateContent, err := appInfoTemplateFS.ReadFile("templates/appinfo.tmpl")
+	if err != nil {
+		return err
+	}
 
-	return tmpl.Execute(os.Stdout, info)
+	appInfoTemplate := template.Must(template.New("appinfo").Parse(string(appInfoTemplateContent)))
+
+	return appInfoTemplate.Execute(os.Stdout, info)
 }

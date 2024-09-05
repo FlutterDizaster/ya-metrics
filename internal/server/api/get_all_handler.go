@@ -2,7 +2,7 @@ package api
 
 import (
 	"bytes"
-	_ "embed"
+	"embed"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -13,7 +13,7 @@ import (
 )
 
 //go:embed templates/metrics.html
-var tmpl string
+var metricsTemplateFS embed.FS
 
 // Handler отдающий таблицу со всеми имеющимися метриками и их значениями.
 //
@@ -33,8 +33,14 @@ func (api *API) getAllHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metricsTemplateContent, err := metricsTemplateFS.ReadFile("templates/metrics.html")
+	if err != nil {
+		http.Error(w, "Error whlie reading temaplate file", http.StatusInternalServerError)
+		return
+	}
+
 	// парсинг темплейта
-	tmpl, err := template.New("metrics").Parse(tmpl)
+	metricsTemplate, err := template.New("metrics").Parse(string(metricsTemplateContent))
 	if err != nil {
 		http.Error(w, "Error whlie creating temaplate", http.StatusInternalServerError)
 		return
@@ -52,7 +58,7 @@ func (api *API) getAllHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Компиляция темплейта
 	var resp bytes.Buffer
-	err = tmpl.ExecuteTemplate(&resp, "metrics", metrics)
+	err = metricsTemplate.ExecuteTemplate(&resp, "metrics", metrics)
 	if err != nil {
 		http.Error(w, "Error whlie executing temaplate", http.StatusInternalServerError)
 		return
