@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/FlutterDizaster/ya-metrics/internal/server/rpc/interceptors"
 	"github.com/FlutterDizaster/ya-metrics/internal/view"
 	pb "github.com/FlutterDizaster/ya-metrics/proto"
 	"golang.org/x/sync/errgroup"
@@ -18,16 +19,18 @@ type MetricsStorage interface {
 }
 
 type Settings struct {
-	Storage MetricsStorage
-	Addr    string
+	Storage      MetricsStorage
+	Addr         string
+	Interceptors []interceptors.Interceptor
 }
 
 // MetricsService - gRPC сервис для работы с метриками.
 // Используется для коммуникации с клиентом сборщиком метрик.
 type MetricsService struct {
 	pb.UnimplementedMetricsServiceServer
-	storage MetricsStorage
-	addr    string
+	storage      MetricsStorage
+	addr         string
+	interceptors []interceptors.Interceptor
 }
 
 // New - создание экземпляра MetricsService.
@@ -35,8 +38,9 @@ type MetricsService struct {
 // Возвращает экземпляр MetricsService.
 func New(settings Settings) *MetricsService {
 	return &MetricsService{
-		storage: settings.Storage,
-		addr:    settings.Addr,
+		storage:      settings.Storage,
+		addr:         settings.Addr,
+		interceptors: settings.Interceptors,
 	}
 }
 
@@ -52,7 +56,12 @@ func (s *MetricsService) Start(ctx context.Context) error {
 		return err
 	}
 
-	srv := grpc.NewServer()
+	interceptors := make([]grpc.UnaryServerInterceptor, 0, len(s.interceptors))
+	for i := range s.interceptors {
+		interceptors = append(interceptors, s.interceptors[i].Unary())
+	}
+
+	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptors...))
 
 	pb.RegisterMetricsServiceServer(srv, s)
 

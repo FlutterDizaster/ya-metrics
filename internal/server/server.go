@@ -11,6 +11,7 @@ import (
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/postgres"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/rpc"
+	"github.com/FlutterDizaster/ya-metrics/internal/server/rpc/interceptors"
 	pemreader "github.com/FlutterDizaster/ya-metrics/pkg/pem-reader"
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 )
@@ -182,10 +183,28 @@ func setupHTTPServer(settings Settings, storage api.MetricsStorage) (*api.API, e
 	return apiServer, nil
 }
 
+func setupInterceptors(settings Settings) []interceptors.Interceptor {
+	intrcpts := []interceptors.Interceptor{
+		&interceptors.LoggerInterceptor{},
+	}
+
+	if settings.TrustedSubnet != "" {
+		_, trustedSubnet, err := net.ParseCIDR(settings.TrustedSubnet)
+		if err == nil {
+			intrcpts = append(intrcpts, &interceptors.AccessFilterInterceptor{
+				TrustedSubnet: trustedSubnet,
+			})
+		}
+	}
+
+	return intrcpts
+}
+
 func setupGRPCServer(settings Settings, storage rpc.MetricsStorage) *rpc.MetricsService {
 	rpcSettings := rpc.Settings{
-		Addr:    settings.RPC,
-		Storage: storage,
+		Addr:         settings.RPC,
+		Storage:      storage,
+		Interceptors: setupInterceptors(settings),
 	}
 
 	return rpc.New(rpcSettings)
