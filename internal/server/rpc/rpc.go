@@ -84,7 +84,7 @@ func (s *MetricsService) AddMetrics(
 	_ context.Context,
 	req *pb.AddMetricsRequest,
 ) (*pb.AddMetricsResponse, error) {
-	metrics := unmarshalMetrics(req.GetMetrics())
+	metrics := view.UnmarshalGRPCMetrics(req.GetMetrics())
 
 	resutl, err := s.storage.AddMetrics(metrics...)
 	if err != nil {
@@ -92,53 +92,8 @@ func (s *MetricsService) AddMetrics(
 	}
 
 	resp := &pb.AddMetricsResponse{
-		Metrics: marshalMetrics(resutl),
+		Metrics: view.MarshalGRPCMetrics(resutl),
 	}
 
 	return resp, nil
-}
-
-// Хелпер фенкция для маршаллинга метрик.
-// Преобразует слайс метрик из пакета proto в слайс метрик пакета view.
-func unmarshalMetrics(metrics []*pb.Metric) []view.Metric {
-	resutl := make([]view.Metric, 0, len(metrics))
-	for i := range metrics {
-		metric := view.Metric{}
-		metric.ID = metrics[i].GetId()
-		metric.MType = metrics[i].GetKind()
-
-		switch metrics[i].GetKind() {
-		case view.KindGauge:
-			value := metrics[i].GetValue()
-			metric.Value = &value
-		case view.KindCounter:
-			delta := metrics[i].GetDelta()
-			metric.Delta = &delta
-		}
-
-		resutl = append(resutl, metric)
-	}
-	return resutl
-}
-
-// Хелпер фенкция для маршаллинга метрик.
-// Преобразует слайс метрик из пакета view в слайс метрик пакета proto.
-func marshalMetrics(metrics []view.Metric) []*pb.Metric {
-	resutl := make([]*pb.Metric, 0, len(metrics))
-	for i := range metrics {
-		metric := &pb.Metric{
-			Id:   metrics[i].ID,
-			Kind: metrics[i].MType,
-		}
-		switch metrics[i].MType {
-		case view.KindGauge:
-			value := metrics[i].Value
-			metric.Value = *value
-		case view.KindCounter:
-			delta := metrics[i].Delta
-			metric.Delta = *delta
-		}
-		resutl = append(resutl, metric)
-	}
-	return resutl
 }
