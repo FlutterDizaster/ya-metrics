@@ -3,12 +3,16 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/application"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/api/middleware"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/memory"
 	"github.com/FlutterDizaster/ya-metrics/internal/server/repository/postgres"
+	"github.com/FlutterDizaster/ya-metrics/internal/server/rpc"
+	"github.com/FlutterDizaster/ya-metrics/internal/server/rpc/interceptors"
+	pemreader "github.com/FlutterDizaster/ya-metrics/pkg/pem-reader"
 	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
 )
 
@@ -21,6 +25,7 @@ type IService interface {
 type IStorageService interface {
 	IService
 	api.MetricsStorage
+	rpc.MetricsStorage
 }
 
 // Settings хранит параметры необходимые для создания экземпляра Server.
@@ -28,6 +33,9 @@ type Settings struct {
 
 	// URL адрес сервера
 	URL string `name:"address" short:"a" default:"localhost:8080" env:"ADDRESS" usage:"Server endpoint with port"`
+
+	// Порт RPC сервера
+	RPC string `name:"rpc-port" short:"p" default:"3200" env:"RPC_port" usage:"RPC server port"`
 
 	// Интервал сохранения данных в хранилище
 	StoreInterval int `name:"interval" short:"i" default:"300" env:"STORE_INTERVAL" usage:"Interval to backup metrics"`
@@ -47,6 +55,9 @@ type Settings struct {
 
 	// Ключ шифрования
 	CryptoKey string `name:"crypto-key" short:"c" default:"" env:"CRYPTO_KEY" usage:"Private RSA key file"`
+
+	// Разрешенная подсеть для подключения к серверу
+	TrustedSubnet string `name:"trusted_subnet" short:"t" default:"" env:"TRUSTED_SUBNET" usage:"Trusted subnet CIDR"`
 }
 
 // Server - структура, которая представляет собоей сервер метрик.
@@ -68,38 +79,67 @@ func New(settings Settings) (*Server, error) {
 	if err := utils.ValidateURL(settings.URL); err != nil {
 		slog.Error("url error", slog.String("error", err.Error()))
 	}
-	// Создание экземпляра StorageService
-	var storage IStorageService
-	var storageMode string
-	var err error
-	// Если строка для поключения к бд не указана
-	if settings.PGConnString == "" {
-		// Создание локального хранилища метрик
-		storageSettings := memory.Settings{
-			StoreInterval:   settings.StoreInterval,
-			FileStoragePath: settings.FileStoragePath,
-			Restore:         settings.Restore,
-		}
-		storage, err = memory.New(&storageSettings)
-		storageMode = "In Memory"
-	} else {
-		// Создание хранилища с подключением к базе
-		storage, err = postgres.New(settings.PGConnString)
-		storageMode = "DB"
-	}
+
+	// Создание хранилища метрик
+	storage, err := setupStorage(settings)
 	if err != nil {
-		slog.Error("error creating storage. forcing exit.", slog.String("error", err.Error()))
 		return nil, err
 	}
 
+	// Создание API сервера
+	apiServer, err := setupHTTPServer(settings, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	// Создание gRPC сервера
+	grpcServer := setupGRPCServer(settings, storage)
+
+	// Создание экземпляра Server
+	server := &Server{}
+
+	// Регистрация сервисов
+	err = server.RegisterService(storage)
+	if err != nil {
+		return nil, err
+	}
+	err = server.RegisterService(apiServer)
+	if err != nil {
+		return nil, err
+	}
+	err = server.RegisterService(grpcServer)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Debug("Application instance created")
+	return server, nil
+}
+
+func setupMiddlewares(settings Settings) ([]middleware.Middleware, error) {
 	// Создание списка Middlewares
 	middlewares := []middleware.Middleware{
 		&middleware.Logger{},
 	}
 
+	// Добавление в список Middlewares AccessFilter
+	if settings.TrustedSubnet != "" {
+		// Парсинг CIDR
+		_, trustedSubnet, tsErr := net.ParseCIDR(settings.TrustedSubnet)
+		if tsErr != nil {
+			return nil, tsErr
+		}
+
+		// Добавление в список Middlewares AccessFilter
+		middlewares = append(middlewares, &middleware.AccessFilter{
+			TrustedSubnet:    trustedSubnet,
+			GetIPFromHeaders: true,
+		})
+	}
+
 	// Получение RSA ключа и добавление в список Middlewares декодера
 	if settings.CryptoKey != "" {
-		key, crErr := utils.ReadPrivateKey(settings.CryptoKey)
+		key, crErr := pemreader.ReadPrivateKey(settings.CryptoKey)
 		if crErr != nil {
 			return nil, crErr
 		}
@@ -118,7 +158,18 @@ func New(settings Settings) (*Server, error) {
 		&middleware.Decompressor{},
 		&middleware.Compressor{
 			MinDataLength: 1,
-		})
+		},
+	)
+
+	return middlewares, nil
+}
+
+func setupHTTPServer(settings Settings, storage api.MetricsStorage) (*api.API, error) {
+	// configure middlewares
+	middlewares, err := setupMiddlewares(settings)
+	if err != nil {
+		return nil, err
+	}
 
 	// configure router settings
 	routerSettings := &api.Settings{
@@ -129,17 +180,57 @@ func New(settings Settings) (*Server, error) {
 	// Создание api сервера
 	apiServer := api.New(routerSettings)
 
-	server := &Server{}
+	return apiServer, nil
+}
 
-	err = server.RegisterService(storage)
-	if err != nil {
-		return nil, err
-	}
-	err = server.RegisterService(apiServer)
-	if err != nil {
-		return nil, err
+func setupInterceptors(settings Settings) []interceptors.Interceptor {
+	intrcpts := []interceptors.Interceptor{
+		&interceptors.LoggerInterceptor{},
 	}
 
-	slog.Debug("Application instance created", slog.String("storage mode", storageMode))
-	return server, nil
+	if settings.TrustedSubnet != "" {
+		_, trustedSubnet, err := net.ParseCIDR(settings.TrustedSubnet)
+		if err == nil {
+			intrcpts = append(intrcpts, &interceptors.AccessFilterInterceptor{
+				TrustedSubnet: trustedSubnet,
+			})
+		}
+	}
+
+	return intrcpts
+}
+
+func setupGRPCServer(settings Settings, storage rpc.MetricsStorage) *rpc.MetricsService {
+	rpcSettings := rpc.Settings{
+		Addr:         settings.RPC,
+		Storage:      storage,
+		Interceptors: setupInterceptors(settings),
+	}
+
+	return rpc.New(rpcSettings)
+}
+
+func setupStorage(settings Settings) (IStorageService, error) {
+	// Создание экземпляра StorageService
+	var storage IStorageService
+	var err error
+	// Если строка для поключения к бд не указана
+	if settings.PGConnString == "" {
+		// Создание локального хранилища метрик
+		storageSettings := memory.Settings{
+			StoreInterval:   settings.StoreInterval,
+			FileStoragePath: settings.FileStoragePath,
+			Restore:         settings.Restore,
+		}
+		storage, err = memory.New(&storageSettings)
+	} else {
+		// Создание хранилища с подключением к базе
+		storage, err = postgres.New(settings.PGConnString)
+	}
+	if err != nil {
+		slog.Error("error creating storage. forcing exit.", slog.String("error", err.Error()))
+		return nil, err
+	}
+
+	return storage, nil
 }

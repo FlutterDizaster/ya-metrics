@@ -2,15 +2,18 @@ package agent
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"log/slog"
 	"time"
 
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/buffer"
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/sender"
+	grpcsender "github.com/FlutterDizaster/ya-metrics/internal/agent/sender/grpc-sender"
+	httpsender "github.com/FlutterDizaster/ya-metrics/internal/agent/sender/http-sender"
 	"github.com/FlutterDizaster/ya-metrics/internal/agent/telemetry"
 	"github.com/FlutterDizaster/ya-metrics/internal/application"
-	"github.com/FlutterDizaster/ya-metrics/pkg/utils"
+	pemreader "github.com/FlutterDizaster/ya-metrics/pkg/pem-reader"
 )
 
 // Интерфейс IService описывает объекты, которые могут быть запущены как отдельные потоки приложения.
@@ -22,6 +25,9 @@ type IService interface {
 type Settings struct {
 	// Адрес сервера агрегатора метрик
 	ServerAddr string `name:"address" short:"a" default:"localhost:8080" usage:"server addres" env:"ADDRESS"`
+
+	// Использование gRPC сервера вместо HTTP
+	UseGRPC bool `name:"grpc" short:"g" default:"false" usage:"use grpc" env:"USE_GRPC"`
 
 	// Ключ для вычисления Hash суммы
 	HashKey string `name:"key" short:"k" default:"" usage:"hash key" env:"KEY"`
@@ -70,26 +76,15 @@ func New(settings Settings) (*Agent, error) {
 	}
 	tlm := telemetry.New(telemetrySettings)
 
-	rsaKey, err := utils.ReadPublicKey(settings.CryptoKey)
+	rsaKey, err := pemreader.ReadPublicKey(settings.CryptoKey)
 	if err != nil {
-		if errors.Is(err, utils.ErrReadFile) {
+		if errors.Is(err, pemreader.ErrReadFile) {
 			return nil, err
 		}
 	}
 
 	// Создание экземпляра Sender
-	senderSettings := sender.Settings{
-		Addr:             settings.ServerAddr,
-		RetryCount:       settings.RetryCount,
-		RetryInterval:    time.Duration(settings.RetryInterval) * time.Second,
-		RetryMaxWaitTime: time.Duration(settings.RetryMaxWaitTime) * time.Second,
-		ReportInterval:   time.Duration(settings.ReportInterval) * time.Second,
-		HashKey:          settings.HashKey,
-		Buf:              buf,
-		RateLimit:        settings.RateLimit,
-		RSAKey:           rsaKey,
-	}
-	snd := sender.New(senderSettings)
+	s := setupSender(settings, buf, rsaKey)
 
 	// Создание агента и регистрация сервисов
 	agent := &Agent{}
@@ -97,11 +92,44 @@ func New(settings Settings) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = agent.RegisterService(snd)
+	err = agent.RegisterService(s)
 	if err != nil {
 		return nil, err
 	}
 
 	slog.Debug("Agent instance created")
 	return agent, nil
+}
+
+func setupSender(
+	settings Settings,
+	buf sender.Buffer,
+	rsaKey *rsa.PublicKey,
+) sender.ISender {
+	var s sender.ISender
+
+	if settings.UseGRPC {
+		senderSettings := grpcsender.Settings{
+			Addr:           settings.ServerAddr,
+			ReportInterval: time.Duration(settings.ReportInterval) * time.Second,
+			Buf:            buf,
+			RateLimit:      settings.RateLimit,
+		}
+		s = grpcsender.New(senderSettings)
+	} else {
+		senderSettings := httpsender.Settings{
+			Addr:             settings.ServerAddr,
+			RetryCount:       settings.RetryCount,
+			RetryInterval:    time.Duration(settings.RetryInterval) * time.Second,
+			RetryMaxWaitTime: time.Duration(settings.RetryMaxWaitTime) * time.Second,
+			ReportInterval:   time.Duration(settings.ReportInterval) * time.Second,
+			HashKey:          settings.HashKey,
+			Buf:              buf,
+			RateLimit:        settings.RateLimit,
+			RSAKey:           rsaKey,
+		}
+		s = httpsender.New(senderSettings)
+	}
+
+	return s
 }
